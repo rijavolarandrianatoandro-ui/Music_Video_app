@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 
+import 'media_downloader.dart';
 import 'media_item.dart';
 
 class MediaLibrary {
@@ -46,5 +47,23 @@ class MediaLibrary {
       }
     }
     return items;
+  }
+
+  MediaItem? itemFromDownloaded(DownloadedMedia download) {
+    final extension = download.name.split('.').last.toLowerCase();
+    final kind = _audioExtensions.contains(extension)
+        ? MediaKind.audio
+        : _videoExtensions.contains(extension)
+        ? MediaKind.video
+        : null;
+    if (kind == null) return null;
+    return MediaItem(
+      file: PlatformFile(
+        name: download.name,
+        size: download.size,
+        path: download.path,
+      ),
+      kind: kind,
+    );
   }
 }

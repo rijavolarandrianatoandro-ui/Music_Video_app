@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'media/media_item.dart';
 import 'media/media_library.dart';
 import 'media/media_playlist.dart';
+import 'media/media_downloader.dart';
 import 'media/playback_controller.dart';
+import 'screens/browser_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/link_import_screen.dart';
 import 'screens/media_library_screen.dart';
@@ -46,6 +48,7 @@ class _MediaShellState extends State<_MediaShell> {
   int _tab = 0;
   bool _searchOpen = false;
   bool _isImporting = false;
+  bool _browserInitialized = false;
 
   @override
   void dispose() {
@@ -61,7 +64,10 @@ class _MediaShellState extends State<_MediaShell> {
       _tabHistory.add(_tab);
       if (_tabHistory.length > 32) _tabHistory.removeAt(0);
     }
-    setState(() => _tab = index);
+    setState(() {
+      _tab = index;
+      if (index == 3) _browserInitialized = true;
+    });
     if (_pageController.hasClients) {
       _pageController.animateToPage(
         index,
@@ -86,7 +92,29 @@ class _MediaShellState extends State<_MediaShell> {
     if (index == _tab) return;
     _tabHistory.add(_tab);
     if (_tabHistory.length > 32) _tabHistory.removeAt(0);
-    setState(() => _tab = index);
+    setState(() {
+      _tab = index;
+      if (index == 3) _browserInitialized = true;
+    });
+  }
+
+  void _addDownloadedMedia(DownloadedMedia download) {
+    final item = _library.itemFromDownloaded(download);
+    if (item == null) {
+      _showMessage('Ce fichier n’est pas dans un format pris en charge.');
+      return;
+    }
+    if (_items.any((existing) => existing.id == item.id)) {
+      _showMessage('Ce média est déjà dans votre bibliothèque.');
+      return;
+    }
+    setState(() {
+      _items.add(item);
+      _items.sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
+    });
+    _showMessage('Téléchargement terminé, média ajouté à la bibliothèque.');
   }
 
   void _selectMediaFilter(MediaLibraryFilter filter) {
@@ -327,6 +355,10 @@ class _MediaShellState extends State<_MediaShell> {
                       onChanged: () => setState(() {}),
                       onPlay: _playPlaylist,
                     ),
+                    if (_browserInitialized)
+                      BrowserScreen(onDownloaded: _addDownloadedMedia)
+                    else
+                      const SizedBox.shrink(),
                   ],
                 ),
               ),
@@ -370,6 +402,11 @@ class _MediaShellState extends State<_MediaShell> {
                           icon: Icon(Icons.queue_music_outlined),
                           selectedIcon: Icon(Icons.queue_music_rounded),
                           label: 'Playlists',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.travel_explore_outlined),
+                          selectedIcon: Icon(Icons.travel_explore_rounded),
+                          label: 'Explorer',
                         ),
                       ],
                     ),

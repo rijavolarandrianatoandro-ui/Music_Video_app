@@ -5,33 +5,49 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:maxei/main.dart';
+import 'package:maxei/src/maxei_app.dart';
 
 void main() {
-  testWidgets('Chat suggestions and notebook navigation work', (
+  testWidgets('Three-tab media navigation and playlist creation work', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const MaxeiApp());
 
-    expect(find.text('Bonjour, que souhaitez-vous explorer ?'), findsOneWidget);
+    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
 
-    await tester.tap(find.text('Trouver des idées'));
+    await tester.tap(find.text('Morceaux'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Aide-moi à trouver des idées pour un nouveau projet.'),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('Je peux vous aider à explorer cette idée.'),
-      findsOneWidget,
-    );
+    expect(find.text('Votre bibliothèque'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Ouvrir le menu'));
+    await tester.tap(find.text('Vidéos'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mes notebooks'));
+    expect(find.text('Votre collection commence ici.'), findsOneWidget);
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Vos sources, réunies.'), findsOneWidget);
+    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
+
+    await tester.tap(find.text('Playlists').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Créez votre première playlist'), findsOneWidget);
+
+    await tester.tap(find.text('Créer une playlist'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Favoris du soir');
+    await tester.tap(find.text('Créer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Favoris du soir'), findsOneWidget);
+    await tester.tap(find.text('Favoris du soir'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 titres'), findsOneWidget);
   });
 }

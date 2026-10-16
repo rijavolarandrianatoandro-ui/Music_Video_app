@@ -7,6 +7,7 @@ import 'media/media_library.dart';
 import 'media/media_playlist.dart';
 import 'media/playback_controller.dart';
 import 'screens/home_screen.dart';
+import 'screens/link_import_screen.dart';
 import 'screens/media_library_screen.dart';
 import 'screens/playlist_library_screen.dart';
 import 'screens/player_screens.dart';
@@ -260,6 +261,15 @@ class _MediaShellState extends State<_MediaShell> {
               icon: Icon(
                 _searchOpen ? Icons.close_rounded : Icons.search_rounded,
               ),
+            ),
+            IconButton(
+              tooltip: 'Analyser un lien média',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LinkImportScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.link_rounded),
             ),
             IconButton(
               tooltip: 'Importer des fichiers audio ou vidéo',

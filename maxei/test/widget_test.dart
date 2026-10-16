@@ -29,7 +29,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
 
-    await tester.tap(find.text('Vidéos'));
+    await tester.tap(find.text('Vidéos').first);
     await tester.pumpAndSettle();
     expect(find.text('Votre collection commence ici.'), findsOneWidget);
     await tester.binding.handlePopRoute();
@@ -49,5 +49,18 @@ void main() {
     await tester.tap(find.text('Favoris du soir'));
     await tester.pumpAndSettle();
     expect(find.text('0 titres'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Analyser un lien média'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      'https://www.youtube.com/watch?v=abc123',
+    );
+    await tester.tap(find.text('Analyser le lien'));
+    await tester.pumpAndSettle();
+    expect(find.text('YouTube'), findsOneWidget);
+    expect(find.text('Identifiant public : abc123'), findsOneWidget);
   });
 }

@@ -4,14 +4,20 @@ import 'package:video_player/video_player.dart';
 
 import '../media/media_item.dart';
 import '../media/playback_controller.dart';
+import '../media/video_player_source.dart';
 import '../theme/maxei_theme.dart';
 import '../widgets/liquid_surface.dart';
 import '../widgets/vinyl_record.dart';
 
 class NowPlayingScreen extends StatelessWidget {
-  const NowPlayingScreen({super.key, required this.playback});
+  const NowPlayingScreen({
+    super.key,
+    required this.playback,
+    required this.onMediaChanged,
+  });
 
   final PlaybackController playback;
+  final VoidCallback onMediaChanged;
 
   String _time(Duration duration) {
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -141,7 +147,10 @@ class NowPlayingScreen extends StatelessWidget {
                                 tooltip: item.isFavorite
                                     ? 'Retirer des favoris'
                                     : 'Ajouter aux favoris',
-                                onPressed: playback.toggleFavorite,
+                                onPressed: () {
+                                  playback.toggleFavorite();
+                                  onMediaChanged();
+                                },
                                 icon: Icon(
                                   item.isFavorite
                                       ? Icons.favorite_rounded
@@ -361,7 +370,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(widget.item.file.uri);
+    _controller = createVideoPlayerController(widget.item.uri);
     _controller
         .initialize()
         .then((_) {

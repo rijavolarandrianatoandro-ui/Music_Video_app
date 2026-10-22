@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -48,7 +49,16 @@ class _MediaShellState extends State<_MediaShell> {
   int _tab = 0;
   bool _searchOpen = false;
   bool _isImporting = false;
+  bool _libraryReady = false;
   bool _browserInitialized = false;
+  String _webSearchQuery = '';
+  int _webSearchRequestId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreLibrary());
+  }
 
   @override
   void dispose() {
@@ -114,7 +124,45 @@ class _MediaShellState extends State<_MediaShell> {
         (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
       );
     });
+    unawaited(_persistLibrary());
     _showMessage('Téléchargement terminé, média ajouté à la bibliothèque.');
+  }
+
+  Future<void> _restoreLibrary() async {
+    try {
+      final saved = await _library.restore();
+      if (!mounted) return;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(saved.items);
+        _playlists
+          ..clear()
+          ..addAll(saved.playlists);
+      });
+    } catch (_) {
+      // The app remains usable if local preferences are unavailable.
+    } finally {
+      if (mounted) setState(() => _libraryReady = true);
+    }
+  }
+
+  Future<void> _persistLibrary() async {
+    try {
+      await _library.save(_items, _playlists);
+    } catch (_) {
+      if (mounted) _showMessage('La sauvegarde locale a échoué.');
+    }
+  }
+
+  void _toggleFavorite(MediaItem item) {
+    setState(() => item.isFavorite = !item.isFavorite);
+    unawaited(_persistLibrary());
+  }
+
+  void _onPlaylistsChanged() {
+    setState(() {});
+    unawaited(_persistLibrary());
   }
 
   void _selectMediaFilter(MediaLibraryFilter filter) {
@@ -122,8 +170,20 @@ class _MediaShellState extends State<_MediaShell> {
     _selectTab(1);
   }
 
+  void _searchWeb() {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    setState(() {
+      _searchOpen = false;
+      _searchController.clear();
+      _webSearchQuery = query;
+      _webSearchRequestId++;
+    });
+    _selectTab(3);
+  }
+
   Future<void> _importMedia() async {
-    if (_isImporting) return;
+    if (_isImporting || !_libraryReady) return;
     setState(() => _isImporting = true);
     try {
       final imported = await _library.importFiles();
@@ -142,6 +202,7 @@ class _MediaShellState extends State<_MediaShell> {
         _searchOpen = false;
         _searchController.clear();
       });
+      unawaited(_persistLibrary());
       if (freshItems.isNotEmpty) {
         _selectMediaFilter(
           freshItems.every((item) => item.kind == MediaKind.audio)
@@ -171,6 +232,7 @@ class _MediaShellState extends State<_MediaShell> {
   }) async {
     try {
       await _playback.playQueue(queue, queue.indexOf(item));
+      unawaited(_persistLibrary());
       if (mounted && openPlayer) {
         _showPlayer();
       }
@@ -185,6 +247,7 @@ class _MediaShellState extends State<_MediaShell> {
     if (item.kind == MediaKind.video) {
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
+      unawaited(_persistLibrary());
       Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => VideoPlayerScreen(item: item)),
       );
@@ -196,7 +259,10 @@ class _MediaShellState extends State<_MediaShell> {
   void _showPlayer() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => NowPlayingScreen(playback: _playback),
+        builder: (_) => NowPlayingScreen(
+          playback: _playback,
+          onMediaChanged: () => unawaited(_persistLibrary()),
+        ),
       ),
     );
   }
@@ -248,10 +314,17 @@ class _MediaShellState extends State<_MediaShell> {
                   controller: _searchController,
                   autofocus: true,
                   onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _searchWeb(),
+                  textInputAction: TextInputAction.search,
                   style: const TextStyle(color: ink, fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: 'Rechercher dans vos médias',
+                  decoration: InputDecoration(
+                    hintText: 'Médias ou recherche Web',
                     border: InputBorder.none,
+                    suffixIcon: IconButton(
+                      tooltip: 'Rechercher sur le Web',
+                      onPressed: _searchWeb,
+                      icon: const Icon(Icons.public_rounded),
+                    ),
                   ),
                 )
               : Row(
@@ -301,7 +374,7 @@ class _MediaShellState extends State<_MediaShell> {
             ),
             IconButton(
               tooltip: 'Importer des fichiers audio ou vidéo',
-              onPressed: _isImporting ? null : _importMedia,
+              onPressed: _isImporting || !_libraryReady ? null : _importMedia,
               icon: _isImporting
                   ? const SizedBox.square(
                       dimension: 19,
@@ -329,8 +402,7 @@ class _MediaShellState extends State<_MediaShell> {
                         item,
                         item.kind == MediaKind.audio ? audioItems : videoItems,
                       ),
-                      onFavorite: (item) =>
-                          setState(() => item.isFavorite = !item.isFavorite),
+                      onFavorite: (item) => _toggleFavorite(item),
                       onSelectMediaFilter: _selectMediaFilter,
                       onOpenPlaylists: () => _selectTab(2),
                     ),
@@ -346,17 +418,20 @@ class _MediaShellState extends State<_MediaShell> {
                         item,
                         item.kind == MediaKind.audio ? audioItems : videoItems,
                       ),
-                      onFavorite: (item) =>
-                          setState(() => item.isFavorite = !item.isFavorite),
+                      onFavorite: (item) => _toggleFavorite(item),
                     ),
                     PlaylistLibraryScreen(
                       playlists: _playlists,
                       mediaItems: _items,
-                      onChanged: () => setState(() {}),
+                      onChanged: _onPlaylistsChanged,
                       onPlay: _playPlaylist,
                     ),
                     if (_browserInitialized)
-                      BrowserScreen(onDownloaded: _addDownloadedMedia)
+                      BrowserScreen(
+                        searchQuery: _webSearchQuery,
+                        searchRequestId: _webSearchRequestId,
+                        onDownloaded: _addDownloadedMedia,
+                      )
                     else
                       const SizedBox.shrink(),
                   ],

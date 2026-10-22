@@ -132,7 +132,7 @@ class PlaybackController extends ChangeNotifier {
     current = item;
     notifyListeners();
     try {
-      await _player.setUrl(item.file.uri.toString());
+      await _player.setUrl(item.uri.toString());
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
       isLoading = false;

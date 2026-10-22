@@ -1,25 +1,30 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../media/downloaded_media.dart';
 import '../media/media_downloader.dart';
 import '../media/media_link.dart';
 import '../media/media_link_parser.dart';
 import '../theme/maxei_theme.dart';
 
 class BrowserScreen extends StatefulWidget {
-  const BrowserScreen({super.key, required this.onDownloaded});
+  const BrowserScreen({
+    super.key,
+    required this.onDownloaded,
+    this.searchQuery = '',
+    this.searchRequestId = 0,
+  });
 
   final ValueChanged<DownloadedMedia> onDownloaded;
+  final String searchQuery;
+  final int searchRequestId;
 
   @override
   State<BrowserScreen> createState() => _BrowserScreenState();
 }
 
 class _BrowserScreenState extends State<BrowserScreen> {
-  static const _searchBase = 'https://duckduckgo.com/?q=';
+  static const _searchBase = 'https://www.google.com/search?q=';
 
   final _addressController = TextEditingController();
   final _addressFocusNode = FocusNode();
@@ -35,7 +40,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   void initState() {
     super.initState();
-    _supportsEmbeddedBrowser = !kIsWeb &&
+    _supportsEmbeddedBrowser =
+        !kIsWeb &&
         const {
           TargetPlatform.android,
           TargetPlatform.iOS,
@@ -75,7 +81,21 @@ class _BrowserScreenState extends State<BrowserScreen> {
           ),
         );
       _webController = controller;
-      controller.loadRequest(Uri.parse('https://duckduckgo.com/'));
+      final query = widget.searchQuery.trim();
+      final initialUri = query.isEmpty
+          ? Uri.parse('https://www.google.com/')
+          : _searchUri(query);
+      _addressController.text = initialUri.toString();
+      controller.loadRequest(initialUri);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant BrowserScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchRequestId != widget.searchRequestId &&
+        widget.searchQuery.trim().isNotEmpty) {
+      _loadSearch(widget.searchQuery);
     }
   }
 
@@ -111,15 +131,41 @@ class _BrowserScreenState extends State<BrowserScreen> {
   Uri? _resolveAddress(String rawInput) {
     final input = rawInput.trim();
     if (input.isEmpty) return null;
-    final withScheme = input.contains('://') ? input : 'https://$input';
-    final candidate = Uri.tryParse(withScheme);
-    if (candidate != null &&
-        candidate.host.isNotEmpty &&
-        {'http', 'https'}.contains(candidate.scheme.toLowerCase()) &&
-        !input.contains(RegExp(r'\s'))) {
-      return candidate;
+    final looksLikeUrl =
+        input.contains('://') ||
+        RegExp(
+          r'^(localhost|[\w-]+\.)+[\w-]+(?::\d+)?(?:/|$)',
+          caseSensitive: false,
+        ).hasMatch(input);
+    if (looksLikeUrl && !input.contains(RegExp(r'\s'))) {
+      final candidate = Uri.tryParse(
+        input.contains('://') ? input : 'https://$input',
+      );
+      if (candidate != null &&
+          candidate.host.isNotEmpty &&
+          {'http', 'https'}.contains(candidate.scheme.toLowerCase())) {
+        return candidate;
+      }
     }
-    return Uri.parse('$_searchBase${Uri.encodeQueryComponent(input)}');
+    return _searchUri(input);
+  }
+
+  Uri _searchUri(String query) =>
+      Uri.parse('$_searchBase${Uri.encodeQueryComponent(query)}');
+
+  Future<void> _loadSearch(String query) async {
+    final uri = _searchUri(query.trim());
+    _addressController.text = uri.toString();
+    final controller = _webController;
+    if (controller == null) {
+      if (mounted) {
+        setState(
+          () => _error = 'La navigation intégrée est disponible dans la version mobile de Maxei.',
+        );
+      }
+    } else {
+      await controller.loadRequest(uri);
+    }
   }
 
   Future<void> _navigate() async {
@@ -133,9 +179,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
     });
     final controller = _webController;
     if (controller == null) {
-      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!opened && mounted) {
-        setState(() => _error = 'Impossible d’ouvrir ce lien sur cet appareil.');
+      if (mounted) {
+        setState(
+          () => _error = 'La navigation intégrée est disponible dans la version mobile de Maxei.',
+        );
       }
       return;
     }
@@ -185,8 +232,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     } catch (_) {
       if (mounted) {
         setState(
-          () => _error =
-              'Le téléchargement a échoué. Vérifiez le lien direct et réessayez.',
+          () => _error = 'Le téléchargement a échoué. Vérifiez le lien direct et réessayez.',
         );
       }
     } finally {
@@ -244,13 +290,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
         else
           const SizedBox(height: 2),
         Expanded(
-          child: _webController case final controller?
-              ? WebViewWidget(controller: controller)
+          child: _webController != null
+              ? WebViewWidget(controller: _webController!)
               : Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Le navigateur intégré est disponible sur Android, iOS et macOS. Les liens peuvent être ouverts dans le navigateur de l’appareil.',
+                      'Le mini-navigateur est disponible dans les versions Android, iOS et macOS de Maxei.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: ink.withValues(alpha: 0.72)),
                     ),

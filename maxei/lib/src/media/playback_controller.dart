@@ -23,6 +23,7 @@ class PlaybackController extends ChangeNotifier {
   bool shuffleEnabled = false;
   PlaybackRepeatMode repeatMode = PlaybackRepeatMode.off;
   double speed = 1;
+  double volume = 1;
   bool _handlingCompletion = false;
   String? _activeMediaPath;
 
@@ -67,6 +68,22 @@ class PlaybackController extends ChangeNotifier {
 
   void toggleShuffle() {
     shuffleEnabled = !shuffleEnabled;
+    notifyListeners();
+  }
+
+  void setShuffle(bool value) {
+    shuffleEnabled = value;
+    notifyListeners();
+  }
+
+  void setRepeatMode(PlaybackRepeatMode value) {
+    repeatMode = value;
+    notifyListeners();
+  }
+
+  Future<void> setVolume(double value) async {
+    volume = value.clamp(0, 1);
+    await _player.setVolume(volume);
     notifyListeners();
   }
 
@@ -152,6 +169,8 @@ class PlaybackController extends ChangeNotifier {
           ),
         ),
       );
+      await _player.setVolume(volume);
+      await _player.setSpeed(speed);
       final previousMediaPath = _activeMediaPath;
       _activeMediaPath = item.uri.toString();
       if (previousMediaPath != null && previousMediaPath != _activeMediaPath) {

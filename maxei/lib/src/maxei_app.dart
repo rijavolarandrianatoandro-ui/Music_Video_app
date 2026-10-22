@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'media/media_item.dart';
+import 'media/app_settings.dart';
 import 'media/media_library.dart';
 import 'media/media_playlist.dart';
 import 'media/media_downloader.dart';
@@ -14,6 +15,7 @@ import 'screens/link_import_screen.dart';
 import 'screens/media_library_screen.dart';
 import 'screens/playlist_library_screen.dart';
 import 'screens/player_screens.dart';
+import 'screens/settings_screen.dart';
 import 'theme/maxei_theme.dart';
 import 'widgets/liquid_surface.dart';
 import 'widgets/media_artwork.dart';
@@ -40,6 +42,7 @@ class _MediaShell extends StatefulWidget {
 class _MediaShellState extends State<_MediaShell> {
   final _library = MediaLibrary();
   final _playback = PlaybackController();
+  final _settings = AppSettings();
   final _searchController = TextEditingController();
   final _pageController = PageController();
   final List<MediaItem> _items = [];
@@ -58,6 +61,7 @@ class _MediaShellState extends State<_MediaShell> {
   void initState() {
     super.initState();
     unawaited(_restoreLibrary());
+    unawaited(_restoreSettings());
   }
 
   @override
@@ -149,6 +153,41 @@ class _MediaShellState extends State<_MediaShell> {
     } finally {
       if (mounted) setState(() => _libraryReady = true);
     }
+  }
+
+  Future<void> _restoreSettings() async {
+    try {
+      final saved = await AppSettings.load();
+      _settings
+        ..volume = saved.volume
+        ..speed = saved.speed
+        ..shuffle = saved.shuffle
+        ..repeatMode = saved.repeatMode
+        ..confirmDownloads = saved.confirmDownloads;
+      _playback
+        ..setShuffle(_settings.shuffle)
+        ..setRepeatMode(_settings.repeatMode);
+      await _playback.setVolume(_settings.volume);
+      await _playback.setSpeed(_settings.speed);
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Les paramètres n’ont pas pu être restaurés : $error');
+      }
+    }
+  }
+
+  Future<void> _saveSettings() => _settings.save();
+
+  void _showSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettingsScreen(
+          settings: _settings,
+          playback: _playback,
+          onChanged: _saveSettings,
+        ),
+      ),
+    );
   }
 
   void _persistLibraryInBackground() {
@@ -394,6 +433,11 @@ class _MediaShellState extends State<_MediaShell> {
                     )
                   : const Icon(Icons.add_rounded),
             ),
+            IconButton(
+              tooltip: 'Paramètres',
+              onPressed: _showSettings,
+              icon: const Icon(Icons.settings_outlined),
+            ),
             const SizedBox(width: 6),
           ],
         ),
@@ -449,6 +493,7 @@ class _MediaShellState extends State<_MediaShell> {
                               searchQuery: _webSearchQuery,
                               searchRequestId: _webSearchRequestId,
                               onDownloaded: _addDownloadedMedia,
+                              confirmDownloads: _settings.confirmDownloads,
                             )
                           else
                             const SizedBox.shrink(),
@@ -574,7 +619,9 @@ class _MiniPlayer extends StatelessWidget {
                   backgroundColor: aqua,
                   foregroundColor: canvas,
                 ),
-                icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                icon: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                ),
               ),
               IconButton(
                 tooltip: 'Suivant',

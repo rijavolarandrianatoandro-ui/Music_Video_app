@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../media/media_downloader.dart';
@@ -11,11 +12,13 @@ class BrowserScreen extends StatefulWidget {
   const BrowserScreen({
     super.key,
     required this.onDownloaded,
+    this.confirmDownloads = true,
     this.searchQuery = '',
     this.searchRequestId = 0,
   });
 
   final ValueChanged<DownloadedMedia> onDownloaded;
+  final bool confirmDownloads;
   final String searchQuery;
   final int searchRequestId;
 
@@ -87,6 +90,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
           : _searchUri(query);
       _addressController.text = initialUri.toString();
       controller.loadRequest(initialUri);
+    } else {
+      final query = widget.searchQuery.trim();
+      final initialUri = query.isEmpty
+          ? Uri.parse('https://www.google.com/')
+          : _searchUri(query);
+      _addressController.text = initialUri.toString();
     }
   }
 
@@ -158,11 +167,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     _addressController.text = uri.toString();
     final controller = _webController;
     if (controller == null) {
-      if (mounted) {
-        setState(
-          () => _error = 'La navigation intégrée est disponible dans la version mobile de Maxei.',
-        );
-      }
+      await _openInSystemBrowser(uri);
     } else {
       await controller.loadRequest(uri);
     }
@@ -179,39 +184,43 @@ class _BrowserScreenState extends State<BrowserScreen> {
     });
     final controller = _webController;
     if (controller == null) {
-      if (mounted) {
-        setState(
-          () => _error = 'La navigation intégrée est disponible dans la version mobile de Maxei.',
-        );
-      }
+      await _openInSystemBrowser(uri);
       return;
     }
     await controller.loadRequest(uri);
   }
 
+  Future<void> _openInSystemBrowser(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted || opened) return;
+    setState(() => _error = 'Impossible d’ouvrir le navigateur du système.');
+  }
+
   Future<void> _openDirectDownload() async {
     final link = _currentMediaLink;
     if (link == null || _isDownloading) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enregistrer ce média ?'),
-        content: const Text(
-          'Confirmez que vous possédez ce fichier ou avez l’autorisation de le télécharger. Le fichier sera enregistré dans l’espace privé de Maxei.',
+    if (widget.confirmDownloads) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Enregistrer ce média ?'),
+          content: const Text(
+            'Confirmez que vous possédez ce fichier ou avez l’autorisation de le télécharger. Le fichier sera enregistré dans l’espace privé de Maxei.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirmer'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+      );
+      if (confirmed != true || !mounted) return;
+    }
 
     setState(() {
       _isDownloading = true;
@@ -295,10 +304,30 @@ class _BrowserScreenState extends State<BrowserScreen> {
               : Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'Le mini-navigateur est disponible dans les versions Android, iOS et macOS de Maxei.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: ink.withValues(alpha: 0.72)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.open_in_browser_rounded,
+                          size: 42,
+                          color: ink.withValues(alpha: 0.65),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Sur PC, Maxei ouvre les recherches et les adresses dans votre navigateur par défaut.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: ink.withValues(alpha: 0.72)),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: () => _openInSystemBrowser(
+                            _resolveAddress(_addressController.text) ??
+                                Uri.parse('https://www.google.com/'),
+                          ),
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          label: const Text('Ouvrir dans le navigateur'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -318,17 +347,22 @@ class _BrowserScreenState extends State<BrowserScreen> {
             children: [
               IconButton(
                 tooltip: 'Page précédente',
-                onPressed: _goBack,
+                onPressed: _webController == null ? null : _goBack,
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
               IconButton(
                 tooltip: 'Page suivante',
-                onPressed: _goForward,
+                onPressed: _webController == null ? null : _goForward,
                 icon: const Icon(Icons.arrow_forward_rounded),
               ),
               IconButton(
                 tooltip: 'Recharger la page',
-                onPressed: () => _webController?.reload(),
+                onPressed: _webController == null
+                    ? () => _openInSystemBrowser(
+                        Uri.tryParse(_addressController.text) ??
+                            Uri.parse('https://www.google.com/'),
+                      )
+                    : () => _webController?.reload(),
                 icon: const Icon(Icons.refresh_rounded),
               ),
             ],

@@ -16,10 +16,22 @@ class MediaItem {
     required String name,
     required String path,
     required int size,
-    required this.kind,
+    required MediaKind kind,
   }) : id = Uri.file(path).toString(),
        uri = Uri.file(path),
        name = name,
+       sizeBytes = size,
+       extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
+       kind = kind,
+       title = _trackTitle(name),
+       artist = _artistFrom(name);
+
+  MediaItem.stored({
+    required this.name,
+    required this.uri,
+    required int size,
+    required this.kind,
+  }) : id = uri.toString(),
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
        title = _trackTitle(name),
@@ -45,7 +57,8 @@ class MediaItem {
   }
 
   Map<String, Object?> toJson() => {
-    'path': uri.toFilePath(),
+    'uri': uri.toString(),
+    'path': uri.scheme == 'file' ? uri.toFilePath() : uri.toString(),
     'name': name,
     'size': sizeBytes,
     'kind': kind.name,
@@ -55,10 +68,13 @@ class MediaItem {
   };
 
   factory MediaItem.fromJson(Map<String, dynamic> json) {
+    final rawUri = json['uri'] as String?;
     final item =
-        MediaItem.downloaded(
+        MediaItem.stored(
             name: json['name'] as String,
-            path: json['path'] as String,
+            uri: rawUri == null
+                ? Uri.file(json['path'] as String)
+                : Uri.parse(rawUri),
             size: (json['size'] as num?)?.toInt() ?? 0,
             kind: MediaKind.values.byName(json['kind'] as String),
           )

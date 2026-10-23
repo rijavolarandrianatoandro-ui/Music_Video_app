@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maxei/src/media/media_item.dart';
 import 'package:maxei/src/media/media_library.dart';
@@ -10,11 +12,18 @@ void main() {
     () async {
       SharedPreferences.setMockInitialValues({});
       final library = MediaLibrary();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'maxei_test_',
+      );
+      final mediaPath =
+          '${tempDirectory.path}${Platform.pathSeparator}track.mp3';
+      await File(mediaPath).writeAsBytes(const [0, 1, 2, 3]);
+      addTearDown(() => tempDirectory.delete(recursive: true));
       final lastPlayedAt = DateTime.utc(2026, 10, 22, 12);
       final item =
           MediaItem.downloaded(
               name: 'Artist - Track.mp3',
-              path: '/app/media/track.mp3',
+              path: mediaPath,
               size: 4096,
               kind: MediaKind.audio,
             )

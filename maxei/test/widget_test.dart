@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:maxei/src/maxei_app.dart';
 
@@ -14,11 +15,13 @@ void main() {
   testWidgets('Three-tab media navigation and playlist creation work', (
     WidgetTester tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const MaxeiApp());
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
 

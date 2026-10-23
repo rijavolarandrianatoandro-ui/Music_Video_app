@@ -389,53 +389,59 @@ class _MediaShellState extends State<_MediaShell> {
           child: Column(
             children: [
               Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  children: [
-                    HomeScreen(
-                      items: _items,
-                      playlists: _playlists,
-                      query: query,
-                      onImport: _importMedia,
-                      onOpen: (item) => _openMedia(
-                        item,
-                        item.kind == MediaKind.audio ? audioItems : videoItems,
+                child: !_libraryReady
+                    ? const Center(child: CircularProgressIndicator())
+                    : PageView(
+                        controller: _pageController,
+                        onPageChanged: _onPageChanged,
+                        children: [
+                          HomeScreen(
+                            items: _items,
+                            playlists: _playlists,
+                            query: query,
+                            onImport: _importMedia,
+                            onOpen: (item) => _openMedia(
+                              item,
+                              item.kind == MediaKind.audio
+                                  ? audioItems
+                                  : videoItems,
+                            ),
+                            onFavorite: (item) => _toggleFavorite(item),
+                            onSelectMediaFilter: _selectMediaFilter,
+                            onOpenPlaylists: () => _selectTab(2),
+                          ),
+                          MediaLibraryScreen(
+                            title: 'Votre bibliothèque',
+                            items: _items,
+                            query: query,
+                            filter: _libraryFilter,
+                            onFilterChanged: (filter) =>
+                                setState(() => _libraryFilter = filter),
+                            onImport: _importMedia,
+                            onOpen: (item) => _openMedia(
+                              item,
+                              item.kind == MediaKind.audio
+                                  ? audioItems
+                                  : videoItems,
+                            ),
+                            onFavorite: (item) => _toggleFavorite(item),
+                          ),
+                          PlaylistLibraryScreen(
+                            playlists: _playlists,
+                            mediaItems: _items,
+                            onChanged: _onPlaylistsChanged,
+                            onPlay: _playPlaylist,
+                          ),
+                          if (_browserInitialized)
+                            BrowserScreen(
+                              searchQuery: _webSearchQuery,
+                              searchRequestId: _webSearchRequestId,
+                              onDownloaded: _addDownloadedMedia,
+                            )
+                          else
+                            const SizedBox.shrink(),
+                        ],
                       ),
-                      onFavorite: (item) => _toggleFavorite(item),
-                      onSelectMediaFilter: _selectMediaFilter,
-                      onOpenPlaylists: () => _selectTab(2),
-                    ),
-                    MediaLibraryScreen(
-                      title: 'Votre bibliothèque',
-                      items: _items,
-                      query: query,
-                      filter: _libraryFilter,
-                      onFilterChanged: (filter) =>
-                          setState(() => _libraryFilter = filter),
-                      onImport: _importMedia,
-                      onOpen: (item) => _openMedia(
-                        item,
-                        item.kind == MediaKind.audio ? audioItems : videoItems,
-                      ),
-                      onFavorite: (item) => _toggleFavorite(item),
-                    ),
-                    PlaylistLibraryScreen(
-                      playlists: _playlists,
-                      mediaItems: _items,
-                      onChanged: _onPlaylistsChanged,
-                      onPlay: _playPlaylist,
-                    ),
-                    if (_browserInitialized)
-                      BrowserScreen(
-                        searchQuery: _webSearchQuery,
-                        searchRequestId: _webSearchRequestId,
-                        onDownloaded: _addDownloadedMedia,
-                      )
-                    else
-                      const SizedBox.shrink(),
-                  ],
-                ),
               ),
               AnimatedBuilder(
                 animation: _playback,

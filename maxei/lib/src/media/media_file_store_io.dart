@@ -30,3 +30,5 @@ Future<DownloadedMedia> persistPickedFile(PlatformFile file) async {
     size: await destination.length(),
   );
 }
+
+Future<bool> persistedFileExists(String path) => File(path).exists();

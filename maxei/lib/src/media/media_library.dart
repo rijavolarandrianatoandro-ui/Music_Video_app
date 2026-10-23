@@ -58,43 +58,50 @@ class MediaLibrary {
           ? MediaKind.video
           : null;
       if (kind != null && file.uri.toString().isNotEmpty) {
-        if (kIsWeb) {
-          items.add(MediaItem(file: file, kind: kind));
-        } else {
-          final stored = await persistPickedFile(file);
-          items.add(
-            MediaItem.downloaded(
-              name: stored.name,
-              path: stored.path,
-              size: stored.size,
-              kind: kind,
-            ),
-          );
-        }
+        final stored = await persistPickedFile(file);
+        items.add(
+          MediaItem.stored(
+            name: stored.name,
+            uri: kIsWeb ? Uri.parse(stored.path) : Uri.file(stored.path),
+            size: stored.size,
+            kind: kind,
+          ),
+        );
       }
     }
     return items;
   }
 
   Future<MediaLibraryState> restore() async {
-    if (kIsWeb) {
-      return const MediaLibraryState(items: [], playlists: []);
-    }
     final preferences = await SharedPreferences.getInstance();
-    return MediaLibraryState(
-      items: _decodeList(preferences.getString(_itemsKey), MediaItem.fromJson),
-      playlists: _decodeList(
-        preferences.getString(_playlistsKey),
-        MediaPlaylist.fromJson,
-      ),
+    final items = _decodeList(
+      preferences.getString(_itemsKey),
+      MediaItem.fromJson,
     );
+    final availableItems = <MediaItem>[];
+    for (final item in items) {
+      final storedPath = item.uri.scheme == 'file'
+          ? item.uri.toFilePath()
+          : item.uri.toString();
+      if (await persistedFileExists(storedPath)) {
+        availableItems.add(item);
+      }
+    }
+    final availableIds = availableItems.map((item) => item.id).toSet();
+    final playlists = _decodeList(
+      preferences.getString(_playlistsKey),
+      MediaPlaylist.fromJson,
+    );
+    for (final playlist in playlists) {
+      playlist.mediaIds.removeWhere((id) => !availableIds.contains(id));
+    }
+    return MediaLibraryState(items: availableItems, playlists: playlists);
   }
 
   Future<void> save(
     List<MediaItem> items,
     List<MediaPlaylist> playlists,
   ) async {
-    if (kIsWeb) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
       _itemsKey,
@@ -113,7 +120,15 @@ class MediaLibrary {
     if (encoded == null) return [];
     try {
       final values = jsonDecode(encoded) as List<dynamic>;
-      return values.whereType<Map<String, dynamic>>().map(fromJson).toList();
+      final decoded = <T>[];
+      for (final value in values.whereType<Map<String, dynamic>>()) {
+        try {
+          decoded.add(fromJson(value));
+        } on Object {
+          // Keep valid entries when one old or damaged record is unreadable.
+        }
+      }
+      return decoded;
     } on Object {
       return [];
     }

@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_windows/webview_windows.dart' as windows_webview;
 
 import '../media/media_downloader.dart';
 import '../media/media_link.dart';
 import '../media/media_link_parser.dart';
 import '../theme/maxei_theme.dart';
+import '../platform/platform_info.dart';
 
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({
@@ -34,6 +38,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
   final _parser = const MediaLinkParser();
   late final bool _supportsEmbeddedBrowser;
   WebViewController? _webController;
+  windows_webview.WebviewController? _windowsWebController;
+  StreamSubscription<String>? _windowsUrlSubscription;
+  StreamSubscription<windows_webview.LoadingState>? _windowsLoadingSubscription;
   MediaLink? _currentMediaLink;
   int _pageProgress = 0;
   double? _downloadProgress;
@@ -90,6 +97,14 @@ class _BrowserScreenState extends State<BrowserScreen> {
           : _searchUri(query);
       _addressController.text = initialUri.toString();
       controller.loadRequest(initialUri);
+    } else if (isWindowsPlatform) {
+      final query = widget.searchQuery.trim();
+      _addressController.text =
+          (query.isEmpty
+                  ? Uri.parse('https://www.google.com/')
+                  : _searchUri(query))
+              .toString();
+      unawaited(_initializeWindowsBrowser());
     } else {
       final query = widget.searchQuery.trim();
       final initialUri = query.isEmpty
@@ -110,9 +125,66 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
   @override
   void dispose() {
+    unawaited(_windowsUrlSubscription?.cancel());
+    unawaited(_windowsLoadingSubscription?.cancel());
+    unawaited(_windowsWebController?.dispose());
     _addressController.dispose();
     _addressFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeWindowsBrowser() async {
+    try {
+      final version =
+          await windows_webview.WebviewController.getWebViewVersion();
+      if (version == null) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'WebView2 Runtime est requis pour le mini-navigateur Windows.',
+          );
+        }
+        return;
+      }
+      final controller = windows_webview.WebviewController();
+      await controller.initialize();
+      await controller.setPopupWindowPolicy(
+        windows_webview.WebviewPopupWindowPolicy.sameWindow,
+      );
+      _windowsUrlSubscription = controller.url.listen(_onWindowsUrlChanged);
+      _windowsLoadingSubscription = controller.loadingState.listen((state) {
+        if (!mounted) return;
+        setState(() {
+          _pageProgress =
+              state == windows_webview.LoadingState.navigationCompleted
+              ? 100
+              : 35;
+        });
+      });
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _windowsWebController = controller);
+      final query = widget.searchQuery.trim();
+      await controller.loadUrl(
+        (query.isEmpty
+                ? Uri.parse('https://www.google.com/')
+                : _searchUri(query))
+            .toString(),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Le mini-navigateur Windows n’a pas pu démarrer : $error',
+        );
+      }
+    }
+  }
+
+  void _onWindowsUrlChanged(String url) {
+    _onPageFinished(url);
   }
 
   void _onPageFinished(String url) {
@@ -166,8 +238,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
     final uri = _searchUri(query.trim());
     _addressController.text = uri.toString();
     final controller = _webController;
-    if (controller == null) {
-      await _openInSystemBrowser(uri);
+    final windowsController = _windowsWebController;
+    if (windowsController != null) {
+      await windowsController.loadUrl(uri.toString());
+    } else if (controller == null) {
+      if (isWindowsPlatform) {
+        _showWindowsUnavailable();
+      } else {
+        await _openInSystemBrowser(uri);
+      }
     } else {
       await controller.loadRequest(uri);
     }
@@ -183,17 +262,32 @@ class _BrowserScreenState extends State<BrowserScreen> {
       _pageProgress = 0;
     });
     final controller = _webController;
-    if (controller == null) {
-      await _openInSystemBrowser(uri);
+    final windowsController = _windowsWebController;
+    if (windowsController != null) {
+      await windowsController.loadUrl(uri.toString());
+    } else if (controller == null) {
+      if (isWindowsPlatform) {
+        _showWindowsUnavailable();
+      } else {
+        await _openInSystemBrowser(uri);
+      }
       return;
+    } else {
+      await controller.loadRequest(uri);
     }
-    await controller.loadRequest(uri);
   }
 
   Future<void> _openInSystemBrowser(Uri uri) async {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted || opened) return;
     setState(() => _error = 'Impossible d’ouvrir le navigateur du système.');
+  }
+
+  void _showWindowsUnavailable() {
+    if (!mounted) return;
+    setState(
+      () => _error = 'Le mini-navigateur Windows attend WebView2 Runtime. Installez-le puis relancez Maxei.',
+    );
   }
 
   Future<void> _openDirectDownload() async {
@@ -255,13 +349,19 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   Future<void> _goBack() async {
-    if (await _webController?.canGoBack() ?? false) {
+    final windowsController = _windowsWebController;
+    if (windowsController != null) {
+      await windowsController.goBack();
+    } else if (await _webController?.canGoBack() ?? false) {
       await _webController?.goBack();
     }
   }
 
   Future<void> _goForward() async {
-    if (await _webController?.canGoForward() ?? false) {
+    final windowsController = _windowsWebController;
+    if (windowsController != null) {
+      await windowsController.goForward();
+    } else if (await _webController?.canGoForward() ?? false) {
       await _webController?.goForward();
     }
   }
@@ -299,7 +399,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
         else
           const SizedBox(height: 2),
         Expanded(
-          child: _webController != null
+          child: _windowsWebController != null
+              ? windows_webview.Webview(_windowsWebController!)
+              : _webController != null
               ? WebViewWidget(controller: _webController!)
               : Center(
                   child: Padding(
@@ -319,14 +421,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
                           style: TextStyle(color: ink.withValues(alpha: 0.72)),
                         ),
                         const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: () => _openInSystemBrowser(
-                            _resolveAddress(_addressController.text) ??
-                                Uri.parse('https://www.google.com/'),
+                        if (!isWindowsPlatform)
+                          FilledButton.icon(
+                            onPressed: () => _openInSystemBrowser(
+                              _resolveAddress(_addressController.text) ??
+                                  Uri.parse('https://www.google.com/'),
+                            ),
+                            icon: const Icon(Icons.open_in_new_rounded),
+                            label: const Text('Ouvrir dans le navigateur'),
                           ),
-                          icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('Ouvrir dans le navigateur'),
-                        ),
                       ],
                     ),
                   ),
@@ -357,7 +460,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
               ),
               IconButton(
                 tooltip: 'Recharger la page',
-                onPressed: _webController == null
+                onPressed: _windowsWebController != null
+                    ? () => _windowsWebController?.reload()
+                    : isWindowsPlatform
+                    ? _showWindowsUnavailable
+                    : _webController == null
                     ? () => _openInSystemBrowser(
                         Uri.tryParse(_addressController.text) ??
                             Uri.parse('https://www.google.com/'),

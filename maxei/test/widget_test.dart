@@ -23,21 +23,21 @@ void main() {
     await tester.pumpWidget(const MaxeiApp());
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
+    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
 
     await tester.tap(find.text('Morceaux'));
     await tester.pumpAndSettle();
     expect(find.text('Votre bibliothèque'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
+    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
 
     await tester.tap(find.text('Vidéos').first);
     await tester.pumpAndSettle();
     expect(find.text('Votre collection commence ici.'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('La musique,\nà votre rythme.'), findsOneWidget);
+    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
 
     await tester.tap(find.text('Playlists').last);
     await tester.pumpAndSettle();

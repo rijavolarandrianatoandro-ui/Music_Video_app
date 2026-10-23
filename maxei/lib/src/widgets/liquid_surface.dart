@@ -26,22 +26,22 @@ class LiquidGlass extends StatelessWidget {
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: tint ?? canvas.withValues(alpha: 0.62),
+            color: tint ?? surface.withValues(alpha: 0.84),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              canvas.withValues(alpha: tint == null ? 0.44 : 0.12),
-              (tint ?? aqua).withValues(alpha: tint == null ? 0.22 : 0.18),
+                ink.withValues(alpha: tint == null ? 0.08 : 0.04),
+                (tint ?? surface).withValues(alpha: tint == null ? 0.82 : 0.88),
             ],
           ),
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: canvas.withValues(alpha: 0.72)),
+            border: Border.all(color: ink.withValues(alpha: 0.14)),
           boxShadow: [
             BoxShadow(
-              color: ink.withValues(alpha: 0.07),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.32),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
             ),
           ],
         ),
@@ -65,50 +65,70 @@ class LiquidBackdrop extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [canvas, aqua.withValues(alpha: 0.36), canvas],
-            stops: [0, 0.52, 1],
+            colors: const [
+              Color(0xFF17191A),
+              Color(0xFF0D1113),
+              canvas,
+            ],
+            stops: [0, 0.48, 1],
           ),
         ),
       ),
-      const CustomPaint(painter: _RipplePainter()),
+      const Positioned(
+        top: -120,
+        right: -90,
+        child: _AmbientGlow(color: Color(0x66FF783F), size: 360),
+      ),
+      const Positioned(
+        bottom: 70,
+        left: -150,
+        child: _AmbientGlow(color: Color(0x332D6B9B), size: 340),
+      ),
+      const CustomPaint(painter: _AtmospherePainter()),
       child,
     ],
   );
 }
 
-class _RipplePainter extends CustomPainter {
-  const _RipplePainter();
+class _AmbientGlow extends StatelessWidget {
+  const _AmbientGlow({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ImageFiltered(
+    imageFilter: ImageFilter.blur(sigmaX: 85, sigmaY: 85),
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    ),
+  );
+}
+
+class _AtmospherePainter extends CustomPainter {
+  const _AtmospherePainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ink.withValues(alpha: 0.045)
+      ..color = ink.withValues(alpha: 0.025)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    for (var index = 0; index < 5; index++) {
-      final y = size.height * (0.60 + index * 0.055);
-      final path = Path()
-        ..moveTo(0, y)
-        ..cubicTo(
-          size.width * 0.22,
-          y - 18,
-          size.width * 0.32,
-          y + 18,
-          size.width * 0.55,
-          y,
-        )
-        ..cubicTo(
-          size.width * 0.77,
-          y - 16,
-          size.width * 0.86,
-          y + 14,
-          size.width,
-          y - 2,
-        );
-      canvas.drawPath(path, paint);
+    for (var index = 0; index < 4; index++) {
+      final radius = size.width * (0.38 + index * 0.11);
+      canvas.drawCircle(
+        Offset(size.width * 0.92, size.height * 0.12),
+        radius,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RipplePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _AtmospherePainter oldDelegate) => false;
 }

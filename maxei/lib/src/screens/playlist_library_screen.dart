@@ -97,7 +97,7 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
                 onPressed: _createPlaylist,
                 style: IconButton.styleFrom(
                   backgroundColor: aqua,
-                  foregroundColor: ink,
+                  foregroundColor: canvas,
                 ),
                 icon: const Icon(Icons.add_rounded),
               ),
@@ -139,8 +139,9 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('Créer une playlist'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: ink,
+                      backgroundColor: aqua,
                       foregroundColor: canvas,
+                      shape: const StadiumBorder(),
                     ),
                   ),
                 ],
@@ -156,27 +157,41 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
             itemBuilder: (context, index) {
               final playlist = widget.playlists[index];
               final tracks = _tracks(playlist);
-              return ListTile(
-                leading: MediaArtwork(title: playlist.name, size: 50),
-                title: Text(
-                  playlist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Material(
+                  color: surface.withValues(alpha: 0.9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    side: BorderSide(color: ink.withValues(alpha: 0.06)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    leading: MediaArtwork(title: playlist.name, size: 50),
+                    title: Text(
+                      playlist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${tracks.length} titres',
+                      style: TextStyle(
+                        color: ink.withValues(alpha: 0.68),
+                        fontSize: 11,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: ink.withValues(alpha: 0.65),
+                    ),
+                    onTap: () => _openPlaylist(playlist),
                   ),
                 ),
-                subtitle: Text(
-                  '${tracks.length} titres',
-                  style: TextStyle(
-                    color: ink.withValues(alpha: 0.68),
-                    fontSize: 11,
-                  ),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded, color: ink),
-                onTap: () => _openPlaylist(playlist),
               );
             },
           ),
@@ -408,7 +423,7 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                       : () => widget.onPlay(tracks),
                   style: IconButton.styleFrom(
                     backgroundColor: aqua,
-                    foregroundColor: ink,
+                    foregroundColor: canvas,
                   ),
                   icon: const Icon(Icons.play_arrow_rounded),
                 ),
@@ -435,38 +450,54 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                     }),
                     itemBuilder: (context, index) {
                       final item = tracks[index];
-                      return ListTile(
+                      return Padding(
                         key: ValueKey(item.id),
-                        leading: MediaArtwork(title: item.title, size: 44),
-                        title: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: ink,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        child: Material(
+                          color: surface.withValues(alpha: 0.9),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            side: BorderSide(
+                              color: ink.withValues(alpha: 0.06),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListTile(
+                            leading: MediaArtwork(title: item.title, size: 44),
+                            title: Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: ink,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              item.artist,
+                              style: TextStyle(
+                                color: ink.withValues(alpha: 0.66),
+                                fontSize: 10,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              tooltip: 'Retirer de la playlist',
+                              icon: Icon(
+                                Icons.remove_circle_outline_rounded,
+                                color: ink.withValues(alpha: 0.7),
+                              ),
+                              onPressed: () => setState(() {
+                                widget.playlist.mediaIds.remove(item.id);
+                                widget.onChanged();
+                              }),
+                            ),
+                            onTap: () => widget.onPlay(tracks.sublist(index)),
                           ),
                         ),
-                        subtitle: Text(
-                          item.artist,
-                          style: TextStyle(
-                            color: ink.withValues(alpha: 0.66),
-                            fontSize: 10,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          tooltip: 'Retirer de la playlist',
-                          icon: const Icon(
-                            Icons.remove_circle_outline_rounded,
-                            color: ink,
-                          ),
-                          onPressed: () => setState(() {
-                            widget.playlist.mediaIds.remove(item.id);
-                            widget.onChanged();
-                          }),
-                        ),
-                        onTap: () => widget.onPlay(tracks.sublist(index)),
                       );
                     },
                   ),

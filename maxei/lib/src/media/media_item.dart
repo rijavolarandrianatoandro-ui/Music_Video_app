@@ -16,13 +16,12 @@ class MediaItem {
     required String name,
     required String path,
     required int size,
-    required MediaKind kind,
+    required this.kind,
   }) : id = Uri.file(path).toString(),
        uri = Uri.file(path),
        name = name,
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
-       kind = kind,
        title = _trackTitle(name),
        artist = _artistFrom(name);
 

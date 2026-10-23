@@ -72,6 +72,8 @@ class MediaLibrary {
     return items;
   }
 
+  Future<bool> requestPersistentBrowserStorage() => requestPersistentStorage();
+
   Future<MediaLibraryState> restore() async {
     final preferences = await SharedPreferences.getInstance();
     final items = _decodeList(

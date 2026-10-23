@@ -149,8 +149,13 @@ class MediaLibraryScreen extends StatelessWidget {
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Importer des médias'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: ink,
+                          backgroundColor: aqua,
                           foregroundColor: canvas,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                          shape: const StadiumBorder(),
                         ),
                       ),
                     ],
@@ -166,56 +171,67 @@ class MediaLibraryScreen extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  leading: MediaArtwork(title: item.title, size: 48),
-                  title: Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: ink,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Material(
+                    color: surface.withValues(alpha: 0.9),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      side: BorderSide(color: ink.withValues(alpha: 0.06)),
                     ),
-                  ),
-                  subtitle: Text(
-                    '${item.kind == MediaKind.audio ? item.artist : 'Vidéo'} · ${item.sizeLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: ink.withValues(alpha: 0.65),
-                      fontSize: 10,
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: item.isFavorite
-                            ? 'Retirer des favoris'
-                            : 'Ajouter aux favoris',
-                        onPressed: () => onFavorite(item),
-                        icon: Icon(
-                          item.isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 3,
+                      ),
+                      leading: MediaArtwork(title: item.title, size: 52),
+                      title: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: ink,
-                          size: 19,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Icon(
-                        item.kind == MediaKind.audio
-                            ? Icons.play_arrow_rounded
-                            : Icons.play_circle_outline_rounded,
-                        color: ink,
+                      subtitle: Text(
+                        '${item.kind == MediaKind.audio ? item.artist : 'Vidéo'} · ${item.sizeLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: ink.withValues(alpha: 0.65),
+                          fontSize: 10,
+                        ),
                       ),
-                    ],
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: item.isFavorite
+                                ? 'Retirer des favoris'
+                                : 'Ajouter aux favoris',
+                            onPressed: () => onFavorite(item),
+                            icon: Icon(
+                              item.isFavorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: item.isFavorite ? aqua : mutedInk,
+                              size: 19,
+                            ),
+                          ),
+                          Icon(
+                            item.kind == MediaKind.audio
+                                ? Icons.play_arrow_rounded
+                                : Icons.play_circle_outline_rounded,
+                            color: aqua,
+                          ),
+                        ],
+                      ),
+                      onTap: () => onOpen(item),
+                    ),
                   ),
-                  onTap: () => onOpen(item),
                 );
               },
             ),
@@ -254,7 +270,7 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? aqua : canvas,
+    color: selected ? aqua : surface,
     borderRadius: BorderRadius.circular(20),
     child: InkWell(
       onTap: onTap,
@@ -263,12 +279,12 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: ink.withValues(alpha: selected ? 0 : 0.2)),
+          border: Border.all(color: ink.withValues(alpha: selected ? 0 : 0.12)),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: ink,
+          style: TextStyle(
+            color: selected ? canvas : ink,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),

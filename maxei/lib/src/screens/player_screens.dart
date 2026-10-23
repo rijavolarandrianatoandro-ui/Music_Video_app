@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../media/media_file_store.dart';
 import '../media/media_item.dart';
 import '../media/playback_controller.dart';
 import '../media/video_player_source.dart';
@@ -37,7 +38,7 @@ class NowPlayingScreen extends StatelessWidget {
                 const Text(
                   'Arrêter la lecture après',
                   style: TextStyle(
-                    color: ink,
+                    color: aqua,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -234,7 +235,7 @@ class NowPlayingScreen extends StatelessWidget {
                                       : playback.toggle,
                                   style: FilledButton.styleFrom(
                                     backgroundColor: aqua,
-                                    foregroundColor: ink,
+                                    foregroundColor: canvas,
                                     shape: const CircleBorder(),
                                   ),
                                   child: playback.isLoading
@@ -242,7 +243,7 @@ class NowPlayingScreen extends StatelessWidget {
                                           dimension: 22,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            color: ink,
+                                            color: canvas,
                                           ),
                                         )
                                       : Icon(
@@ -361,7 +362,8 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late final VideoPlayerController _controller;
+  VideoPlayerController? _controller;
+  String? _playbackMediaPath;
   Object? _error;
   double _speed = 1;
   bool _muted = false;
@@ -370,20 +372,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = createVideoPlayerController(widget.item.uri);
-    _controller
-        .initialize()
-        .then((_) {
-          if (mounted) setState(() {});
-        })
-        .catchError((Object error) {
-          if (mounted) setState(() => _error = error);
-        });
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      final playableUri = await resolvePlayableMediaUri(
+        widget.item.uri.toString(),
+        extension: widget.item.extension,
+      );
+      _playbackMediaPath = widget.item.uri.toString();
+      if (!mounted) {
+        releasePlayableMediaUri(_playbackMediaPath!);
+        return;
+      }
+      final controller = createVideoPlayerController(Uri.parse(playableUri));
+      _controller = controller;
+      await controller.initialize();
+      if (mounted) setState(() {});
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+      final mediaPath = _playbackMediaPath;
+      if (mediaPath != null) {
+        releasePlayableMediaUri(mediaPath);
+        _playbackMediaPath = null;
+      }
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
+    final mediaPath = _playbackMediaPath;
+    if (mediaPath != null) releasePlayableMediaUri(mediaPath);
     if (_landscape) {
       SystemChrome.setPreferredOrientations(const [
         DeviceOrientation.portraitUp,
@@ -404,9 +425,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _seekBy(Duration offset) async {
-    final target = _controller.value.position + offset;
-    final duration = _controller.value.duration;
-    await _controller.seekTo(
+    final controller = _controller;
+    if (controller == null) return;
+    final target = controller.value.position + offset;
+    final duration = controller.value.duration;
+    await controller.seekTo(
       target < Duration.zero
           ? Duration.zero
           : target > duration
@@ -417,12 +440,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
     return Scaffold(
-      backgroundColor: ink,
+      backgroundColor: canvas,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: ink,
-        foregroundColor: canvas,
+        backgroundColor: surface,
+        foregroundColor: ink,
         actions: [
           IconButton(
             tooltip: _landscape ? 'Mode portrait' : 'Mode paysage',
@@ -441,24 +465,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ? const Text(
                 'Ce format vidéo ne peut pas être lu sur cet appareil.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: canvas),
+                style: TextStyle(color: ink),
               )
-            : !_controller.value.isInitialized
+            : controller == null || !controller.value.isInitialized
             ? const CircularProgressIndicator(color: aqua)
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AspectRatio(
-                    aspectRatio: _controller.value.aspectRatio,
-                    child: VideoPlayer(_controller),
+                    aspectRatio: controller.value.aspectRatio,
+                    child: VideoPlayer(controller),
                   ),
                   VideoProgressIndicator(
-                    _controller,
+                    controller,
                     allowScrubbing: true,
                     colors: const VideoProgressColors(
                       playedColor: aqua,
-                      bufferedColor: canvas,
-                      backgroundColor: ink,
+                      bufferedColor: mutedInk,
+                      backgroundColor: surface,
                     ),
                   ),
                   Padding(
@@ -469,37 +493,37 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         IconButton(
                           onPressed: () =>
                               _seekBy(const Duration(seconds: -10)),
-                          color: canvas,
+                          color: ink,
                           icon: const Icon(Icons.replay_10_rounded),
                         ),
                         IconButton.filled(
                           onPressed: () => setState(
-                            () => _controller.value.isPlaying
-                                ? _controller.pause()
-                                : _controller.play(),
+                            () => controller.value.isPlaying
+                                ? controller.pause()
+                                : controller.play(),
                           ),
                           style: IconButton.styleFrom(
                             backgroundColor: aqua,
-                            foregroundColor: ink,
+                            foregroundColor: canvas,
                           ),
                           icon: Icon(
-                            _controller.value.isPlaying
+                            controller.value.isPlaying
                                 ? Icons.pause_rounded
                                 : Icons.play_arrow_rounded,
                           ),
                         ),
                         IconButton(
                           onPressed: () => _seekBy(const Duration(seconds: 10)),
-                          color: canvas,
+                          color: ink,
                           icon: const Icon(Icons.forward_10_rounded),
                         ),
                         IconButton(
                           tooltip: _muted ? 'Activer le son' : 'Couper le son',
                           onPressed: () => setState(() {
                             _muted = !_muted;
-                            _controller.setVolume(_muted ? 0 : 1);
+                            controller.setVolume(_muted ? 0 : 1);
                           }),
-                          color: canvas,
+                          color: ink,
                           icon: Icon(
                             _muted
                                 ? Icons.volume_off_rounded
@@ -511,7 +535,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           initialValue: _speed,
                           onSelected: (value) => setState(() {
                             _speed = value;
-                            _controller.setPlaybackSpeed(value);
+                            controller.setPlaybackSpeed(value);
                           }),
                           itemBuilder: (context) => [
                             for (final value in [
@@ -534,10 +558,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             ),
                             child: Text(
                               '$_speed×',
-                              style: const TextStyle(
-                                color: canvas,
-                                fontSize: 12,
-                              ),
+                              style: const TextStyle(color: ink, fontSize: 12),
                             ),
                           ),
                         ),

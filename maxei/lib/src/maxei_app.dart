@@ -124,7 +124,7 @@ class _MediaShellState extends State<_MediaShell> {
         (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
       );
     });
-    unawaited(_persistLibrary());
+    _persistLibraryInBackground();
     _showMessage('Téléchargement terminé, média ajouté à la bibliothèque.');
   }
 
@@ -140,29 +140,39 @@ class _MediaShellState extends State<_MediaShell> {
           ..clear()
           ..addAll(saved.playlists);
       });
-    } catch (_) {
-      // The app remains usable if local preferences are unavailable.
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          'La bibliothèque locale n’a pas pu être restaurée : $error',
+        );
+      }
     } finally {
       if (mounted) setState(() => _libraryReady = true);
     }
   }
 
-  Future<void> _persistLibrary() async {
+  void _persistLibraryInBackground() {
+    unawaited(_persistLibrary().then<void>((_) {}));
+  }
+
+  Future<bool> _persistLibrary() async {
     try {
       await _library.save(_items, _playlists);
-    } catch (_) {
-      if (mounted) _showMessage('La sauvegarde locale a échoué.');
+      return true;
+    } catch (error) {
+      if (mounted) _showMessage('La sauvegarde locale a échoué : $error');
+      return false;
     }
   }
 
   void _toggleFavorite(MediaItem item) {
     setState(() => item.isFavorite = !item.isFavorite);
-    unawaited(_persistLibrary());
+    _persistLibraryInBackground();
   }
 
   void _onPlaylistsChanged() {
     setState(() {});
-    unawaited(_persistLibrary());
+    _persistLibraryInBackground();
   }
 
   void _selectMediaFilter(MediaLibraryFilter filter) {
@@ -186,6 +196,8 @@ class _MediaShellState extends State<_MediaShell> {
     if (_isImporting || !_libraryReady) return;
     setState(() => _isImporting = true);
     try {
+      final persistentStorage = await _library
+          .requestPersistentBrowserStorage();
       final imported = await _library.importFiles();
       if (!mounted || imported.isEmpty) {
         return;
@@ -202,7 +214,7 @@ class _MediaShellState extends State<_MediaShell> {
         _searchOpen = false;
         _searchController.clear();
       });
-      unawaited(_persistLibrary());
+      if (!await _persistLibrary()) return;
       if (freshItems.isNotEmpty) {
         _selectMediaFilter(
           freshItems.every((item) => item.kind == MediaKind.audio)
@@ -214,11 +226,11 @@ class _MediaShellState extends State<_MediaShell> {
       }
       final message = freshItems.isEmpty
           ? 'Ces fichiers sont déjà dans votre bibliothèque.'
-          : '${freshItems.length} média${freshItems.length == 1 ? '' : 's'} ajouté${freshItems.length == 1 ? '' : 's'} sur cet appareil.';
+          : '${freshItems.length} média${freshItems.length == 1 ? '' : 's'} ajouté${freshItems.length == 1 ? '' : 's'} sur cet appareil.${persistentStorage ? '' : ' Edge ne garantit pas la conservation des données : évitez d’effacer les données du site.'}';
       _showMessage(message);
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        _showMessage('Import impossible. Vérifiez le format et réessayez.');
+        _showMessage('Import impossible : $error');
       }
     } finally {
       if (mounted) setState(() => _isImporting = false);
@@ -232,7 +244,7 @@ class _MediaShellState extends State<_MediaShell> {
   }) async {
     try {
       await _playback.playQueue(queue, queue.indexOf(item));
-      unawaited(_persistLibrary());
+      _persistLibraryInBackground();
       if (mounted && openPlayer) {
         _showPlayer();
       }
@@ -247,7 +259,7 @@ class _MediaShellState extends State<_MediaShell> {
     if (item.kind == MediaKind.video) {
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
-      unawaited(_persistLibrary());
+      _persistLibraryInBackground();
       Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => VideoPlayerScreen(item: item)),
       );
@@ -261,7 +273,7 @@ class _MediaShellState extends State<_MediaShell> {
       MaterialPageRoute<void>(
         builder: (_) => NowPlayingScreen(
           playback: _playback,
-          onMediaChanged: () => unawaited(_persistLibrary()),
+          onMediaChanged: _persistLibraryInBackground,
         ),
       ),
     );
@@ -339,7 +351,7 @@ class _MediaShellState extends State<_MediaShell> {
                       child: const Icon(
                         Icons.equalizer_rounded,
                         size: 20,
-                        color: ink,
+                        color: canvas,
                       ),
                     ),
                     const SizedBox(width: 9),
@@ -465,7 +477,7 @@ class _MediaShellState extends State<_MediaShell> {
                       selectedIndex: _tab,
                       onDestinationSelected: _selectTab,
                       backgroundColor: Colors.transparent,
-                      indicatorColor: aqua.withValues(alpha: 0.55),
+                      indicatorColor: aqua.withValues(alpha: 0.18),
                       labelBehavior:
                           NavigationDestinationLabelBehavior.alwaysShow,
                       destinations: const [
@@ -519,8 +531,8 @@ class _MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LiquidGlass(
-    radius: 14,
-    tint: aqua.withValues(alpha: 0.72),
+    radius: 22,
+    tint: const Color(0xFF202629),
     child: Material(
       color: Colors.transparent,
       child: InkWell(
@@ -558,10 +570,11 @@ class _MiniPlayer extends StatelessWidget {
               IconButton(
                 tooltip: isPlaying ? 'Pause' : 'Reprendre',
                 onPressed: onToggle,
-                icon: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: ink,
+                style: IconButton.styleFrom(
+                  backgroundColor: aqua,
+                  foregroundColor: canvas,
                 ),
+                icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
               ),
               IconButton(
                 tooltip: 'Suivant',

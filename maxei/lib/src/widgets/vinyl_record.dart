@@ -66,12 +66,12 @@ class _VinylRecordState extends State<VinylRecord>
         dimension: widget.size,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: ink,
+            color: canvas,
             shape: BoxShape.circle,
             border: Border.all(color: aqua.withValues(alpha: 0.38), width: 1),
             boxShadow: [
               BoxShadow(
-                color: ink.withValues(alpha: 0.24),
+                color: Colors.black.withValues(alpha: 0.48),
                 blurRadius: 36,
                 offset: const Offset(0, 18),
               ),
@@ -104,7 +104,7 @@ class _VinylRecordState extends State<VinylRecord>
                 width: widget.size * 0.035,
                 height: widget.size * 0.035,
                 decoration: const BoxDecoration(
-                  color: ink,
+                  color: canvas,
                   shape: BoxShape.circle,
                 ),
               ),

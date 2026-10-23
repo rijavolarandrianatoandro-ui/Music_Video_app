@@ -3,7 +3,10 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart'
+    as audio_background;
 
+import 'media_file_store.dart';
 import 'media_item.dart';
 
 enum PlaybackRepeatMode { off, all, one }
@@ -21,6 +24,7 @@ class PlaybackController extends ChangeNotifier {
   PlaybackRepeatMode repeatMode = PlaybackRepeatMode.off;
   double speed = 1;
   bool _handlingCompletion = false;
+  String? _activeMediaPath;
 
   PlaybackController() {
     _stateSubscription = _player.playerStateStream.listen((state) {
@@ -131,14 +135,37 @@ class PlaybackController extends ChangeNotifier {
     isLoading = true;
     current = item;
     notifyListeners();
+    String? playableUri;
     try {
-      await _player.setUrl(item.uri.toString());
+      playableUri = await resolvePlayableMediaUri(
+        item.uri.toString(),
+        extension: item.extension,
+      );
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(playableUri),
+          tag: audio_background.MediaItem(
+            id: item.id,
+            title: item.title,
+            artist: item.artist,
+            album: 'Maxei',
+          ),
+        ),
+      );
+      final previousMediaPath = _activeMediaPath;
+      _activeMediaPath = item.uri.toString();
+      if (previousMediaPath != null && previousMediaPath != _activeMediaPath) {
+        releasePlayableMediaUri(previousMediaPath);
+      }
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
       isLoading = false;
       notifyListeners();
       unawaited(_player.play().catchError((Object _) {}));
     } catch (_) {
+      if (playableUri != null && _activeMediaPath != item.uri.toString()) {
+        releasePlayableMediaUri(item.uri.toString());
+      }
       isLoading = false;
       notifyListeners();
       rethrow;
@@ -168,6 +195,10 @@ class PlaybackController extends ChangeNotifier {
     _sleepTimer?.cancel();
     unawaited(_stateSubscription.cancel());
     unawaited(_player.dispose());
+    final activeMediaPath = _activeMediaPath;
+    if (activeMediaPath != null) {
+      releasePlayableMediaUri(activeMediaPath);
+    }
     super.dispose();
   }
 }

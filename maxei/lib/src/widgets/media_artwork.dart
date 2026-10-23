@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/maxei_theme.dart';
-
 class MediaArtwork extends StatelessWidget {
   const MediaArtwork({super.key, required this.title, this.size = 64});
 
@@ -11,12 +9,24 @@ class MediaArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final variant = title.hashCode.abs() % 3;
+    final palettes = [
+      (const Color(0xFFFF7442), const Color(0xFF792A37), const Color(0xFFFFC18C)),
+      (const Color(0xFF5272B8), const Color(0xFF253456), const Color(0xFFB4C8FF)),
+      (const Color(0xFFB84B68), const Color(0xFF5E2D49), const Color(0xFFFFB2C7)),
+    ];
+    final (primary, secondary, detail) = palettes[variant];
     return SizedBox.square(
       dimension: size,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.14),
-        child: ColoredBox(
-          color: variant == 1 ? aqua : ink,
+        borderRadius: BorderRadius.circular(size * 0.2),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [primary, secondary],
+            ),
+          ),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -28,7 +38,7 @@ class MediaArtwork extends StatelessWidget {
                   height: size * 0.82,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: variant == 1 ? ink : canvas,
+                    color: detail.withValues(alpha: 0.28),
                   ),
                 ),
               ),
@@ -41,17 +51,17 @@ class MediaArtwork extends StatelessWidget {
                     width: size * 0.68,
                     height: size * 0.68,
                     decoration: BoxDecoration(
-                      color: variant == 2 ? aqua : canvas,
-                      borderRadius: BorderRadius.circular(size * 0.2),
+                      color: detail.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(size * 0.28),
                     ),
                   ),
                 ),
               ),
               Center(
                 child: Icon(
-                  Icons.graphic_eq_rounded,
-                  size: size * 0.38,
-                  color: variant == 1 ? aqua : ink,
+                  variant == 0 ? Icons.music_note_rounded : Icons.graphic_eq_rounded,
+                  size: size * 0.4,
+                  color: detail,
                 ),
               ),
             ],

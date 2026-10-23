@@ -8,3 +8,12 @@ Future<DownloadedMedia> persistPickedFile(PlatformFile file) =>
     );
 
 Future<bool> persistedFileExists(String path) async => false;
+
+Future<bool> requestPersistentStorage() async => false;
+
+Future<String> resolvePlayableMediaUri(
+  String path, {
+  String? extension,
+}) async => path;
+
+void releasePlayableMediaUri(String path) {}

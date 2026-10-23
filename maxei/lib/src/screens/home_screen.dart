@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../media/local_recommender.dart';
 import '../media/media_item.dart';
 import '../media/media_playlist.dart';
 import 'media_library_screen.dart';
@@ -48,6 +49,7 @@ class HomeScreen extends StatelessWidget {
         return byPlays != 0 ? byPlays : a.title.compareTo(b.title);
       });
     final featured = popular.isEmpty ? null : popular.first;
+    final recommendations = recommendLocalTracks(items);
     final audioCount = items
         .where((item) => item.kind == MediaKind.audio)
         .length;
@@ -55,28 +57,29 @@ class HomeScreen extends StatelessWidget {
 
     return ListView(
       key: const ValueKey('home-feed'),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 26),
+      padding: const EdgeInsets.fromLTRB(20, 15, 20, 30),
       children: [
         Text(
-          'BONJOUR, MAXEI',
+          'VOTRE ESPACE MUSIQUE',
           style: TextStyle(
-            color: ink.withValues(alpha: 0.62),
-            fontSize: 11,
+            color: aqua,
+            fontSize: 10,
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.7,
+            letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 7),
         const Text(
-          'La musique,\nà votre rythme.',
+          'La musique.\nÀ votre façon.',
           style: TextStyle(
             color: ink,
-            fontSize: 29,
+            fontSize: 33,
             fontWeight: FontWeight.w800,
-            height: 1.08,
+            height: 1.02,
+            letterSpacing: -0.7,
           ),
         ),
-        const SizedBox(height: 15),
+        const SizedBox(height: 19),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -103,6 +106,25 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _FeaturedHero(item: featured, onImport: onImport, onOpen: onOpen),
+        if (recommendations.isNotEmpty) ...[
+          const SizedBox(height: 21),
+          const _SectionHeading(title: 'Pour vous'),
+          const SizedBox(height: 2),
+          Text(
+            'Suggestions calculées ici, à partir de vos favoris et écoutes.',
+            style: TextStyle(
+              color: ink.withValues(alpha: 0.62),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 5),
+          for (final recommendation in recommendations)
+            _RecommendationRow(
+              recommendation: recommendation,
+              onTap: () => onOpen(recommendation.item),
+              onFavorite: () => onFavorite(recommendation.item),
+            ),
+        ],
         const SizedBox(height: 22),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -195,7 +217,7 @@ class _HomeFilterChip extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(right: 7),
     child: Material(
-      color: selected ? aqua : canvas.withValues(alpha: 0.48),
+      color: selected ? aqua : surface.withValues(alpha: 0.84),
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
@@ -205,7 +227,7 @@ class _HomeFilterChip extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: ink,
+              color: selected ? canvas : ink,
               fontSize: 11,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -229,9 +251,9 @@ class _FeaturedHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LiquidGlass(
-    radius: 20,
-    tint: ink.withValues(alpha: 0.9),
-    padding: const EdgeInsets.all(18),
+    radius: 28,
+    tint: const Color(0xFF263650),
+    padding: const EdgeInsets.all(20),
     child: Row(
       children: [
         Expanded(
@@ -241,10 +263,10 @@ class _FeaturedHero extends StatelessWidget {
               const Text(
                 'À ÉCOUTER',
                 style: TextStyle(
-                  color: aqua,
+                  color: Color(0xFFFFB18C),
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
-                  letterSpacing: 0.8,
+                  letterSpacing: 1.4,
                 ),
               ),
               const SizedBox(height: 8),
@@ -253,9 +275,9 @@ class _FeaturedHero extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: canvas,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
+                  color: ink,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
@@ -264,8 +286,8 @@ class _FeaturedHero extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: canvas.withValues(alpha: 0.72),
-                  fontSize: 11,
+                  color: ink.withValues(alpha: 0.78),
+                  fontSize: 12,
                 ),
               ),
               const SizedBox(height: 12),
@@ -277,8 +299,13 @@ class _FeaturedHero extends StatelessWidget {
                 ),
                 label: Text(item == null ? 'Ajouter des médias' : 'Écouter'),
                 style: TextButton.styleFrom(
-                  foregroundColor: ink,
+                  foregroundColor: canvas,
                   backgroundColor: aqua,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 11,
+                  ),
+                  shape: const StadiumBorder(),
                 ),
               ),
             ],
@@ -310,7 +337,7 @@ class _CollectionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 12,
-    tint: aqua.withValues(alpha: 0.36),
+    tint: const Color(0xFF22282A),
     child: Material(
       color: Colors.transparent,
       child: InkWell(
@@ -320,7 +347,7 @@ class _CollectionTile extends StatelessWidget {
           padding: const EdgeInsets.all(13),
           child: Row(
             children: [
-              Icon(icon, color: ink, size: 21),
+              Icon(icon, color: aqua, size: 22),
               const SizedBox(width: 9),
               Expanded(
                 child: Column(
@@ -341,7 +368,11 @@ class _CollectionTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: ink, size: 12),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: ink.withValues(alpha: 0.5),
+                size: 12,
+              ),
             ],
           ),
         ),
@@ -451,6 +482,46 @@ class _MediaRow extends StatelessWidget {
         color: ink,
         size: 19,
       ),
+    ),
+    onTap: onTap,
+  );
+}
+
+class _RecommendationRow extends StatelessWidget {
+  const _RecommendationRow({
+    required this.recommendation,
+    required this.onTap,
+    required this.onFavorite,
+  });
+
+  final MediaRecommendation recommendation;
+  final VoidCallback onTap;
+  final VoidCallback onFavorite;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    leading: MediaArtwork(title: recommendation.item.title, size: 46),
+    title: Text(
+      recommendation.item.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: ink,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    subtitle: Text(
+      recommendation.reason,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: ink.withValues(alpha: 0.62), fontSize: 10),
+    ),
+    trailing: IconButton(
+      tooltip: 'Ajouter aux favoris',
+      onPressed: onFavorite,
+      icon: const Icon(Icons.favorite_border_rounded, color: aqua, size: 19),
     ),
     onTap: onTap,
   );

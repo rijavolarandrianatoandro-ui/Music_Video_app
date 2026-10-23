@@ -11,3 +11,12 @@ Future<DownloadedMedia> persistPickedFile(PlatformFile file) =>
 
 Future<bool> persistedFileExists(String path) =>
     implementation.persistedFileExists(path);
+
+Future<bool> requestPersistentStorage() =>
+    implementation.requestPersistentStorage();
+
+Future<String> resolvePlayableMediaUri(String path, {String? extension}) =>
+    implementation.resolvePlayableMediaUri(path, extension: extension);
+
+void releasePlayableMediaUri(String path) =>
+    implementation.releasePlayableMediaUri(path);

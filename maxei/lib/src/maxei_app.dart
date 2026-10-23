@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'media/media_item.dart';
 import 'media/app_settings.dart';
 import 'media/media_library.dart';
 import 'media/media_playlist.dart';
 import 'media/media_downloader.dart';
+import 'media/media_providers.dart';
 import 'media/playback_controller.dart';
 import 'screens/browser_screen.dart';
 import 'screens/home_screen.dart';
@@ -24,11 +26,13 @@ class MaxeiApp extends StatelessWidget {
   const MaxeiApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Maxei · votre bibliothèque média',
-    debugShowCheckedModeBanner: false,
-    theme: buildMaxeiTheme(),
-    home: const _MediaShell(),
+  Widget build(BuildContext context) => ProviderScope(
+    child: MaterialApp(
+      title: 'Maxei · votre bibliothèque média',
+      debugShowCheckedModeBanner: false,
+      theme: buildMaxeiTheme(),
+      home: const _MediaShell(),
+    ),
   );
 }
 
@@ -418,7 +422,12 @@ class _MediaShellState extends State<_MediaShell> {
               tooltip: 'Analyser un lien média',
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => const LinkImportScreen(),
+                  builder: (_) => Consumer(
+                    builder: (context, ref, child) => LinkImportScreen(
+                      downloadManager: ref.read(downloadManagerProvider),
+                      onDownloaded: _addDownloadedMedia,
+                    ),
+                  ),
                 ),
               ),
               icon: const Icon(Icons.link_rounded),
@@ -489,11 +498,16 @@ class _MediaShellState extends State<_MediaShell> {
                             onPlay: _playPlaylist,
                           ),
                           if (_browserInitialized)
-                            BrowserScreen(
-                              searchQuery: _webSearchQuery,
-                              searchRequestId: _webSearchRequestId,
-                              onDownloaded: _addDownloadedMedia,
-                              confirmDownloads: _settings.confirmDownloads,
+                            Consumer(
+                              builder: (context, ref, child) => BrowserScreen(
+                                searchQuery: _webSearchQuery,
+                                searchRequestId: _webSearchRequestId,
+                                onDownloaded: _addDownloadedMedia,
+                                confirmDownloads: _settings.confirmDownloads,
+                                downloadManager: ref.read(
+                                  downloadManagerProvider,
+                                ),
+                              ),
                             )
                           else
                             const SizedBox.shrink(),

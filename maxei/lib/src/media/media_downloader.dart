@@ -10,4 +10,5 @@ export 'downloaded_media.dart';
 Future<DownloadedMedia> downloadDirectMedia(
   Uri uri, {
   required ValueChanged<double?> onProgress,
+  String? resumePath,
 }) => implementation.downloadDirectMedia(uri, onProgress: onProgress);

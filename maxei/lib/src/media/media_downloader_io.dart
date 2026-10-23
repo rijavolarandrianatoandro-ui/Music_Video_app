@@ -29,6 +29,7 @@ const _mediaExtensions = {
 Future<DownloadedMedia> downloadDirectMedia(
   Uri uri, {
   required ValueChanged<double?> onProgress,
+  String? resumePath,
 }) async {
   final extension = uri.pathSegments.isEmpty
       ? ''
@@ -47,12 +48,30 @@ Future<DownloadedMedia> downloadDirectMedia(
   IOSink? sink;
   try {
     final request = await client.getUrl(uri);
-    request.followRedirects = false;
+    request.followRedirects = true;
+    request.maxRedirects = 5;
+    var existingBytes = 0;
+    if (resumePath != null) {
+      final existing = File(resumePath);
+      if (await existing.exists()) {
+        existingBytes = await existing.length();
+        if (existingBytes > 0) {
+          request.headers.set(HttpHeaders.rangeHeader, 'bytes=$existingBytes-');
+        }
+      }
+    }
     final response = await request.close();
-    if (response.statusCode != HttpStatus.ok) {
+    if (response.statusCode != HttpStatus.ok &&
+        response.statusCode != HttpStatus.partialContent) {
       throw HttpException('Le serveur a répondu ${response.statusCode}.');
     }
-    if (response.contentLength > _maxDownloadBytes) {
+    final canResume =
+        existingBytes > 0 && response.statusCode == HttpStatus.partialContent;
+    if (!canResume) existingBytes = 0;
+    final totalBytes = response.contentLength > 0
+        ? response.contentLength + existingBytes
+        : -1;
+    if (totalBytes > _maxDownloadBytes) {
       throw const FormatException('Le fichier dépasse la limite de 500 Mo.');
     }
 
@@ -67,10 +86,10 @@ Future<DownloadedMedia> downloadDirectMedia(
     final name = safeName.isEmpty || safeName.startsWith('.')
         ? 'media_${DateTime.now().millisecondsSinceEpoch}.$extension'
         : safeName;
-    var outputFile = File(
-      '${downloadsDirectory.path}${Platform.pathSeparator}$name',
-    );
-    if (await outputFile.exists()) {
+    var outputFile = resumePath == null
+        ? File('${downloadsDirectory.path}${Platform.pathSeparator}$name')
+        : File(resumePath);
+    if (resumePath == null && await outputFile.exists()) {
       final dot = name.lastIndexOf('.');
       final stem = dot > 0 ? name.substring(0, dot) : name;
       outputFile = File(
@@ -78,19 +97,27 @@ Future<DownloadedMedia> downloadDirectMedia(
       );
     }
     partialFile = File('${outputFile.path}.part');
-    sink = partialFile.openWrite();
+    if (!canResume && await partialFile.exists()) {
+      await partialFile.delete();
+    }
+    if (canResume) {
+      await File(resumePath!).rename(partialFile.path);
+    }
+    sink = partialFile.openWrite(
+      mode: canResume ? FileMode.append : FileMode.write,
+    );
 
-    var received = 0;
+    var received = existingBytes;
     var lastReportedPercent = -1;
-    onProgress(response.contentLength > 0 ? 0 : null);
+    onProgress(totalBytes > 0 ? received / totalBytes : null);
     await for (final chunk in response) {
       received += chunk.length;
       if (received > _maxDownloadBytes) {
         throw const FormatException('Le fichier dépasse la limite de 500 Mo.');
       }
       sink.add(chunk);
-      if (response.contentLength > 0) {
-        final percent = (received * 100 / response.contentLength).floor();
+      if (totalBytes > 0) {
+        final percent = (received * 100 / totalBytes).floor();
         if (percent != lastReportedPercent) {
           lastReportedPercent = percent;
           onProgress(percent / 100);

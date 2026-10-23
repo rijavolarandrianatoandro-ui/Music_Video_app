@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as windows_webview;
 
 import '../media/media_downloader.dart';
+import '../media/download_manager.dart';
 import '../media/media_link.dart';
 import '../media/media_link_parser.dart';
 import '../theme/maxei_theme.dart';
@@ -16,12 +17,14 @@ class BrowserScreen extends StatefulWidget {
   const BrowserScreen({
     super.key,
     required this.onDownloaded,
+    this.downloadManager,
     this.confirmDownloads = true,
     this.searchQuery = '',
     this.searchRequestId = 0,
   });
 
   final ValueChanged<DownloadedMedia> onDownloaded;
+  final DownloadManager? downloadManager;
   final bool confirmDownloads;
   final String searchQuery;
   final int searchRequestId;
@@ -37,7 +40,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   final _addressFocusNode = FocusNode();
   final _parser = const MediaLinkParser();
   late final bool _supportsEmbeddedBrowser;
-  WebViewController? _webController;
+  InAppWebViewController? _webController;
   windows_webview.WebviewController? _windowsWebController;
   StreamSubscription<String>? _windowsUrlSubscription;
   StreamSubscription<windows_webview.LoadingState>? _windowsLoadingSubscription;
@@ -58,45 +61,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
           TargetPlatform.macOS,
         }.contains(defaultTargetPlatform);
     if (_supportsEmbeddedBrowser) {
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onProgress: (progress) {
-              if (mounted) setState(() => _pageProgress = progress);
-            },
-            onPageStarted: (url) {
-              if (mounted) {
-                setState(() {
-                  _pageProgress = 0;
-                  _currentMediaLink = null;
-                  _error = null;
-                  _addressController.text = url;
-                });
-              }
-            },
-            onPageFinished: _onPageFinished,
-            onWebResourceError: (error) {
-              if (error.isForMainFrame == true && mounted) {
-                setState(() => _error = 'Cette page ne peut pas être chargée.');
-              }
-            },
-            onNavigationRequest: (request) {
-              final uri = Uri.tryParse(request.url);
-              if (uri == null || !{'http', 'https'}.contains(uri.scheme)) {
-                return NavigationDecision.prevent;
-              }
-              return NavigationDecision.navigate;
-            },
-          ),
-        );
-      _webController = controller;
       final query = widget.searchQuery.trim();
       final initialUri = query.isEmpty
           ? Uri.parse('https://www.google.com/')
           : _searchUri(query);
       _addressController.text = initialUri.toString();
-      controller.loadRequest(initialUri);
     } else if (isWindowsPlatform) {
       final query = widget.searchQuery.trim();
       _addressController.text =
@@ -248,7 +217,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
         await _openInSystemBrowser(uri);
       }
     } else {
-      await controller.loadRequest(uri);
+      await controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(uri.toString())),
+      );
     }
   }
 
@@ -273,7 +244,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
       }
       return;
     } else {
-      await controller.loadRequest(uri);
+      await controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(uri.toString())),
+      );
     }
   }
 
@@ -322,12 +295,14 @@ class _BrowserScreenState extends State<BrowserScreen> {
       _error = null;
     });
     try {
-      final download = await downloadDirectMedia(
-        link.uri,
-        onProgress: (progress) {
-          if (mounted) setState(() => _downloadProgress = progress);
-        },
-      );
+      final download = widget.downloadManager == null
+          ? await downloadDirectMedia(
+              link.uri,
+              onProgress: (progress) {
+                if (mounted) setState(() => _downloadProgress = progress);
+              },
+            )
+          : await widget.downloadManager!.enqueue(link.uri);
       if (!mounted) return;
       widget.onDownloaded(download);
     } on UnsupportedError catch (error) {
@@ -402,7 +377,49 @@ class _BrowserScreenState extends State<BrowserScreen> {
           child: _windowsWebController != null
               ? windows_webview.Webview(_windowsWebController!)
               : _webController != null
-              ? WebViewWidget(controller: _webController!)
+              ? InAppWebView(
+                  initialUrlRequest: URLRequest(
+                    url: WebUri(_addressController.text),
+                  ),
+                  initialSettings: InAppWebViewSettings(
+                    javaScriptEnabled: true,
+                    mediaPlaybackRequiresUserGesture: false,
+                  ),
+                  onWebViewCreated: (controller) {
+                    _webController = controller;
+                  },
+                  onProgressChanged: (controller, progress) {
+                    if (mounted) setState(() => _pageProgress = progress);
+                  },
+                  onLoadStart: (controller, url) {
+                    if (url != null && mounted) {
+                      setState(() {
+                        _pageProgress = 0;
+                        _currentMediaLink = null;
+                        _error = null;
+                        _addressController.text = url.toString();
+                      });
+                    }
+                  },
+                  onLoadStop: (controller, url) {
+                    if (url != null) _onPageFinished(url.toString());
+                  },
+                  onReceivedError: (controller, request, error) {
+                    if (request.isForMainFrame == true && mounted) {
+                      setState(
+                        () => _error = 'Cette page ne peut pas être chargée.',
+                      );
+                    }
+                  },
+                  shouldOverrideUrlLoading: (controller, action) async {
+                    final uri = action.request.url;
+                    if (uri == null ||
+                        !{'http', 'https'}.contains(uri.scheme)) {
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    return NavigationActionPolicy.ALLOW;
+                  },
+                )
               : Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),

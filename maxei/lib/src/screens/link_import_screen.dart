@@ -3,11 +3,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../media/media_link.dart';
 import '../media/media_link_parser.dart';
+import '../media/download_manager.dart';
+import '../media/media_downloader.dart';
 import '../theme/maxei_theme.dart';
 import '../widgets/liquid_surface.dart';
 
 class LinkImportScreen extends StatefulWidget {
-  const LinkImportScreen({super.key});
+  const LinkImportScreen({
+    super.key,
+    required this.downloadManager,
+    required this.onDownloaded,
+  });
+
+  final DownloadManager downloadManager;
+  final ValueChanged<DownloadedMedia> onDownloaded;
 
   @override
   State<LinkImportScreen> createState() => _LinkImportScreenState();
@@ -20,6 +29,7 @@ class _LinkImportScreenState extends State<LinkImportScreen> {
   String? _error;
   bool _isFavorite = false;
   bool _isOpening = false;
+  bool _isDownloading = false;
 
   @override
   void dispose() {
@@ -59,6 +69,24 @@ class _LinkImportScreenState extends State<LinkImportScreen> {
       if (mounted) _showMessage('Impossible d’ouvrir ce lien pour le moment.');
     } finally {
       if (mounted) setState(() => _isOpening = false);
+    }
+  }
+
+  Future<void> _download() async {
+    final link = _link;
+    if (link == null ||
+        link.platform != MediaPlatform.directFile ||
+        _isDownloading) {
+      return;
+    }
+    setState(() => _isDownloading = true);
+    try {
+      final download = await widget.downloadManager.enqueue(link.uri);
+      if (mounted) widget.onDownloaded(download);
+    } catch (error) {
+      if (mounted) _showMessage('Téléchargement impossible : $error');
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
     }
   }
 
@@ -129,8 +157,10 @@ class _LinkImportScreenState extends State<LinkImportScreen> {
               link: link,
               isFavorite: _isFavorite,
               isOpening: _isOpening,
+              isDownloading: _isDownloading,
               onFavorite: () => setState(() => _isFavorite = !_isFavorite),
               onOpen: _openSource,
+              onDownload: _download,
             ),
           ],
           const SizedBox(height: 18),
@@ -165,15 +195,19 @@ class _LinkResult extends StatelessWidget {
     required this.link,
     required this.isFavorite,
     required this.isOpening,
+    required this.isDownloading,
     required this.onFavorite,
     required this.onOpen,
+    required this.onDownload,
   });
 
   final MediaLink link;
   final bool isFavorite;
   final bool isOpening;
+  final bool isDownloading;
   final VoidCallback onFavorite;
   final VoidCallback onOpen;
+  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) => LiquidGlass(
@@ -231,6 +265,24 @@ class _LinkResult extends StatelessWidget {
             label: Text(isOpening ? 'Ouverture…' : 'Ouvrir la source'),
           ),
         ),
+        if (link.platform == MediaPlatform.directFile) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isDownloading ? null : onDownload,
+              icon: isDownloading
+                  ? const SizedBox.square(
+                      dimension: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_rounded),
+              label: Text(
+                isDownloading ? 'Téléchargement…' : 'Télécharger le fichier',
+              ),
+            ),
+          ),
+        ],
       ],
     ),
   );

@@ -10,7 +10,9 @@ class MediaItem {
       sizeBytes = file.lengthSync(),
       extension = (file.extension ?? '').toLowerCase(),
       title = _trackTitle(file.name),
-      artist = _artistFrom(file.name);
+      artist = _artistFrom(file.name),
+      album = '',
+      durationMs = null;
 
   MediaItem.downloaded({
     required String name,
@@ -23,18 +25,42 @@ class MediaItem {
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
        title = _trackTitle(name),
-       artist = _artistFrom(name);
+       artist = _artistFrom(name),
+       album = '',
+       durationMs = null;
 
   MediaItem.stored({
     required this.name,
     required this.uri,
     required int size,
     required this.kind,
+    String? title,
+    String? artist,
+    this.album = '',
+    this.durationMs,
   }) : id = uri.toString(),
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
-       title = _trackTitle(name),
-       artist = _artistFrom(name);
+       title = title?.trim().isNotEmpty == true
+           ? title!.trim()
+           : _trackTitle(name),
+       artist = artist?.trim().isNotEmpty == true
+           ? artist!.trim()
+           : _artistFrom(name);
+
+  MediaItem.deviceAudio({
+    required this.name,
+    required this.uri,
+    required int size,
+    required String title,
+    required this.artist,
+    required this.album,
+    required this.durationMs,
+  }) : id = uri.toString(),
+       sizeBytes = size,
+       extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
+       kind = MediaKind.audio,
+       title = title.trim().isEmpty ? _trackTitle(name) : title.trim();
 
   final Uri uri;
   final String name;
@@ -44,6 +70,8 @@ class MediaItem {
   final String id;
   final String title;
   final String artist;
+  final String album;
+  final int? durationMs;
   bool isFavorite = false;
   int playCount = 0;
   DateTime? lastPlayedAt;
@@ -61,6 +89,10 @@ class MediaItem {
     'name': name,
     'size': sizeBytes,
     'kind': kind.name,
+    'title': title,
+    'artist': artist,
+    'album': album,
+    'durationMs': durationMs,
     'favorite': isFavorite,
     'playCount': playCount,
     'lastPlayedAt': lastPlayedAt?.toIso8601String(),
@@ -76,6 +108,10 @@ class MediaItem {
                 : Uri.parse(rawUri),
             size: (json['size'] as num?)?.toInt() ?? 0,
             kind: MediaKind.values.byName(json['kind'] as String),
+            title: json['title'] as String?,
+            artist: json['artist'] as String?,
+            album: json['album'] as String? ?? '',
+            durationMs: (json['durationMs'] as num?)?.toInt(),
           )
           ..isFavorite = json['favorite'] as bool? ?? false
           ..playCount = (json['playCount'] as num?)?.toInt() ?? 0;

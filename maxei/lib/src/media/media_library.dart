@@ -5,20 +5,29 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'media_downloader.dart';
+import 'device_audio_scanner.dart';
 import 'media_file_store.dart';
 import 'media_item.dart';
+import 'listening_session.dart';
 import 'media_playlist.dart';
 
 class MediaLibraryState {
-  const MediaLibraryState({required this.items, required this.playlists});
+  const MediaLibraryState({
+    required this.items,
+    required this.playlists,
+    required this.listeningHistory,
+  });
 
   final List<MediaItem> items;
   final List<MediaPlaylist> playlists;
+  final List<ListeningSession> listeningHistory;
 }
 
 class MediaLibrary {
   static const _itemsKey = 'maxei.library.items.v1';
   static const _playlistsKey = 'maxei.library.playlists.v1';
+  static const _listeningHistoryKey = 'maxei.library.listeningHistory.v1';
+  final DeviceAudioScanner _deviceAudioScanner = DeviceAudioScanner();
   static const _audioExtensions = {
     'mp3',
     'm4a',
@@ -74,7 +83,15 @@ class MediaLibrary {
 
   Future<bool> requestPersistentBrowserStorage() => requestPersistentStorage();
 
-  Future<MediaLibraryState> restore() async {
+  Future<DeviceAudioScanResult> scanDeviceAudio() => _deviceAudioScanner.scan();
+
+  Future<void> openDeviceAudioSettings() =>
+      _deviceAudioScanner.openAppSettings();
+
+  Future<MediaLibraryState> restore({
+    Set<String>? availableDeviceAudioUris,
+    bool preserveUnverifiedDeviceAudio = false,
+  }) async {
     final preferences = await SharedPreferences.getInstance();
     final items = _decodeList(
       preferences.getString(_itemsKey),
@@ -82,6 +99,16 @@ class MediaLibrary {
     );
     final availableItems = <MediaItem>[];
     for (final item in items) {
+      if (item.uri.scheme == 'content' && preserveUnverifiedDeviceAudio) {
+        availableItems.add(item);
+        continue;
+      }
+      if (item.uri.scheme == 'content' && availableDeviceAudioUris != null) {
+        if (availableDeviceAudioUris.contains(item.uri.toString())) {
+          availableItems.add(item);
+        }
+        continue;
+      }
       final storedPath = item.uri.scheme == 'file'
           ? item.uri.toFilePath()
           : item.uri.toString();
@@ -94,16 +121,25 @@ class MediaLibrary {
       preferences.getString(_playlistsKey),
       MediaPlaylist.fromJson,
     );
+    final listeningHistory = _decodeList(
+      preferences.getString(_listeningHistoryKey),
+      ListeningSession.fromJson,
+    );
     for (final playlist in playlists) {
       playlist.mediaIds.removeWhere((id) => !availableIds.contains(id));
     }
-    return MediaLibraryState(items: availableItems, playlists: playlists);
+    return MediaLibraryState(
+      items: availableItems,
+      playlists: playlists,
+      listeningHistory: listeningHistory,
+    );
   }
 
   Future<void> save(
     List<MediaItem> items,
-    List<MediaPlaylist> playlists,
-  ) async {
+    List<MediaPlaylist> playlists, {
+    List<ListeningSession>? listeningHistory,
+  }) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
       _itemsKey,
@@ -113,6 +149,14 @@ class MediaLibrary {
       _playlistsKey,
       jsonEncode(playlists.map((playlist) => playlist.toJson()).toList()),
     );
+    if (listeningHistory != null) {
+      await preferences.setString(
+        _listeningHistoryKey,
+        jsonEncode(
+          listeningHistory.map((session) => session.toJson()).toList(),
+        ),
+      );
+    }
   }
 
   List<T> _decodeList<T>(

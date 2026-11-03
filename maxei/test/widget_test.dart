@@ -6,16 +6,74 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:maxei/src/maxei_app.dart';
 
 void main() {
+  testWidgets('Monthly listening recap can be skipped until next month', (
+    WidgetTester tester,
+  ) async {
+    final today = DateTime.now();
+    final recapMonth = DateTime(today.year, today.month - 1);
+    final monthKey =
+        '${recapMonth.year}-${recapMonth.month.toString().padLeft(2, '0')}';
+    const deviceMediaChannel = MethodChannel('app.maxei/device_media');
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      'maxei.library.listeningHistory.v1',
+      '[{"id":"session-1","mediaId":"local-track-1","title":"Track","artist":"Artist","startedAt":"${DateTime(recapMonth.year, recapMonth.month, 4, 20).toIso8601String()}","listenedMilliseconds":65000}]',
+    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(deviceMediaChannel, (call) async {
+          if (call.method == 'scanAudio') {
+            return {'permissionGranted': true, 'items': <Object>[]};
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(deviceMediaChannel, null),
+    );
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaxeiApp());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Votre mois en musique est prêt'), findsOneWidget);
+
+    await tester.tap(find.text('Passer'));
+    await tester.pumpAndSettle();
+    expect(preferences.getString('settings.dismissedRecapMonth'), monthKey);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(const MaxeiApp());
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Votre mois en musique est prêt'), findsNothing);
+  });
+
   testWidgets('Three-tab media navigation and playlist creation work', (
     WidgetTester tester,
   ) async {
+    const deviceMediaChannel = MethodChannel('app.maxei/device_media');
     SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(deviceMediaChannel, (call) async {
+          if (call.method == 'scanAudio') {
+            return {'permissionGranted': true, 'items': <Object>[]};
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(deviceMediaChannel, null),
+    );
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -24,6 +82,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Paramètres'));
+    await tester.pumpAndSettle();
+    expect(find.text('Récapitulatif musical'), findsOneWidget);
+    await tester.tap(find.text('Récapitulatif musical'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Pas encore assez d’écoutes enregistrées pour ce mois. Vos prochaines lectures apparaîtront ici.',
+      ),
+      findsOneWidget,
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Morceaux'));
     await tester.pumpAndSettle();

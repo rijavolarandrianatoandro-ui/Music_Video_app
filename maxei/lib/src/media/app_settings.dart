@@ -9,6 +9,7 @@ class AppSettings {
     this.shuffle = false,
     this.repeatMode = PlaybackRepeatMode.off,
     this.confirmDownloads = true,
+    this.dismissedRecapMonth,
   });
 
   double volume;
@@ -16,6 +17,7 @@ class AppSettings {
   bool shuffle;
   PlaybackRepeatMode repeatMode;
   bool confirmDownloads;
+  String? dismissedRecapMonth;
 
   static Future<AppSettings> load() async {
     final preferences = await SharedPreferences.getInstance();
@@ -28,6 +30,9 @@ class AppSettings {
           .values[repeatIndex.clamp(0, PlaybackRepeatMode.values.length - 1)],
       confirmDownloads:
           preferences.getBool('settings.confirmDownloads') ?? true,
+      dismissedRecapMonth: preferences.getString(
+        'settings.dismissedRecapMonth',
+      ),
     );
   }
 
@@ -38,5 +43,14 @@ class AppSettings {
     await preferences.setBool('settings.shuffle', shuffle);
     await preferences.setInt('settings.repeatMode', repeatMode.index);
     await preferences.setBool('settings.confirmDownloads', confirmDownloads);
+    final dismissedRecapMonth = this.dismissedRecapMonth;
+    if (dismissedRecapMonth == null) {
+      await preferences.remove('settings.dismissedRecapMonth');
+    } else {
+      await preferences.setString(
+        'settings.dismissedRecapMonth',
+        dismissedRecapMonth,
+      );
+    }
   }
 }

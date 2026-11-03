@@ -11,11 +11,15 @@ class SettingsScreen extends StatelessWidget {
     required this.settings,
     required this.playback,
     required this.onChanged,
+    required this.onOpenRecap,
+    required this.listeningSessionCount,
   });
 
   final AppSettings settings;
   final PlaybackController playback;
   final Future<void> Function() onChanged;
+  final VoidCallback onOpenRecap;
+  final int listeningSessionCount;
 
   Future<void> _save(BuildContext context) async {
     try {
@@ -92,15 +96,26 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ),
-                  SwitchListTile.adaptive(
-                    secondary: const Icon(Icons.shuffle_rounded, color: aqua),
-                    title: const Text('Lecture aléatoire'),
-                    value: playback.shuffleEnabled,
-                    onChanged: (value) {
-                      settings.shuffle = value;
-                      playback.setShuffle(value);
-                      _save(context);
-                    },
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shuffle_rounded, color: aqua),
+                        const SizedBox(width: 14),
+                        const Expanded(child: Text('Lecture aléatoire')),
+                        Switch.adaptive(
+                          value: playback.shuffleEnabled,
+                          onChanged: (value) {
+                            settings.shuffle = value;
+                            playback.setShuffle(value);
+                            _save(context);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.repeat_rounded, color: aqua),
@@ -128,23 +143,82 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
+            const _SectionTitle('VOTRE MUSIQUE'),
+            LiquidGlass(
+              radius: 20,
+              child: GestureDetector(
+                onTap: onOpenRecap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 13,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, color: aqua),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Récapitulatif musical'),
+                            const SizedBox(height: 4),
+                            Text(
+                              listeningSessionCount == 0
+                                  ? 'Vos écoutes resteront ici, sur cet appareil.'
+                                  : '$listeningSessionCount écoutes enregistrées sur cet appareil.',
+                              style: const TextStyle(
+                                color: mutedInk,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: ink),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
             const _SectionTitle('BIBLIOTHÈQUE ET TÉLÉCHARGEMENTS'),
             LiquidGlass(
               radius: 20,
-              child: SwitchListTile.adaptive(
-                secondary: const Icon(
-                  Icons.download_for_offline_outlined,
-                  color: aqua,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-                title: const Text('Confirmer les téléchargements'),
-                subtitle: const Text(
-                  'Demander une confirmation avant d’enregistrer un média.',
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.download_for_offline_outlined,
+                      color: aqua,
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Confirmer les téléchargements'),
+                          SizedBox(height: 4),
+                          Text(
+                            'Demander une confirmation avant d’enregistrer un média.',
+                            style: TextStyle(color: mutedInk, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: settings.confirmDownloads,
+                      onChanged: (value) {
+                        settings.confirmDownloads = value;
+                        _save(context);
+                      },
+                    ),
+                  ],
                 ),
-                value: settings.confirmDownloads,
-                onChanged: (value) {
-                  settings.confirmDownloads = value;
-                  _save(context);
-                },
               ),
             ),
             const SizedBox(height: 22),

@@ -14,7 +14,10 @@ class HomeScreen extends StatelessWidget {
     required this.items,
     required this.playlists,
     required this.query,
+    required this.deviceAudioPermissionDenied,
+    required this.isScanningDeviceAudio,
     required this.onImport,
+    required this.onScanDeviceAudio,
     required this.onOpen,
     required this.onFavorite,
     required this.onSelectMediaFilter,
@@ -24,7 +27,10 @@ class HomeScreen extends StatelessWidget {
   final List<MediaItem> items;
   final List<MediaPlaylist> playlists;
   final String query;
+  final bool deviceAudioPermissionDenied;
+  final bool isScanningDeviceAudio;
   final VoidCallback onImport;
+  final VoidCallback? onScanDeviceAudio;
   final ValueChanged<MediaItem> onOpen;
   final ValueChanged<MediaItem> onFavorite;
   final ValueChanged<MediaLibraryFilter> onSelectMediaFilter;
@@ -33,14 +39,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (query.isNotEmpty) {
-      final results = items
-          .where(
-            (item) =>
-                item.title.toLowerCase().contains(query) ||
-                item.artist.toLowerCase().contains(query),
-          )
-          .toList();
-      return _SearchResults(items: results, onOpen: onOpen);
+      return _SearchResults(items: items, onOpen: onOpen);
     }
 
     final popular = items.toList()
@@ -80,6 +79,13 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 19),
+        if (deviceAudioPermissionDenied) ...[
+          _AudioPermissionNotice(
+            isScanning: isScanningDeviceAudio,
+            onScan: onScanDeviceAudio!,
+          ),
+          const SizedBox(height: 14),
+        ],
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -112,10 +118,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             'Suggestions calculées ici, à partir de vos favoris et écoutes.',
-            style: TextStyle(
-              color: ink.withValues(alpha: 0.62),
-              fontSize: 11,
-            ),
+            style: TextStyle(color: ink.withValues(alpha: 0.62), fontSize: 11),
           ),
           const SizedBox(height: 5),
           for (final recommendation in recommendations)
@@ -200,6 +203,50 @@ class HomeScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+class _AudioPermissionNotice extends StatelessWidget {
+  const _AudioPermissionNotice({
+    required this.isScanning,
+    required this.onScan,
+  });
+
+  final bool isScanning;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) => LiquidGlass(
+    radius: 20,
+    tint: const Color(0xFF28231E),
+    padding: const EdgeInsets.all(14),
+    child: Row(
+      children: [
+        const Icon(Icons.library_music_outlined, color: aqua),
+        const SizedBox(width: 11),
+        const Expanded(
+          child: Text(
+            'Autorisez Musique et audio pour trouver les morceaux de votre téléphone.',
+            style: TextStyle(color: ink, fontSize: 11, height: 1.35),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: isScanning ? null : onScan,
+          style: FilledButton.styleFrom(
+            backgroundColor: aqua,
+            foregroundColor: canvas,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          child: isScanning
+              ? const SizedBox.square(
+                  dimension: 17,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Autoriser'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _HomeFilterChip extends StatelessWidget {

@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart'
     as audio_background;
 
+import 'listening_session.dart';
 import 'media_file_store.dart';
 import 'media_item.dart';
 
@@ -15,6 +16,8 @@ class PlaybackController extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
   final Random _random = Random();
   late final StreamSubscription<PlayerState> _stateSubscription;
+  late final StreamSubscription<Duration> _positionSubscription;
+  final ValueChanged<ListeningSession>? onListeningSessionChanged;
   List<MediaItem> _queue = const [];
   int _queueIndex = -1;
   Timer? _sleepTimer;
@@ -26,15 +29,25 @@ class PlaybackController extends ChangeNotifier {
   double volume = 1;
   bool _handlingCompletion = false;
   String? _activeMediaPath;
+  ListeningSession? _activeListeningSession;
+  Duration? _lastTrackedPosition;
+  DateTime? _lastPublishedAt;
 
-  PlaybackController() {
+  PlaybackController({this.onListeningSessionChanged}) {
     _stateSubscription = _player.playerStateStream.listen((state) {
       if (_isDisposed) return;
       notifyListeners();
+      if (!_player.playing) {
+        _lastTrackedPosition = null;
+        _publishListeningSession();
+      }
       if (state.processingState == ProcessingState.completed) {
         unawaited(_advanceAfterCompletion());
       }
     });
+    _positionSubscription = _player.positionStream.listen(
+      _trackListeningPosition,
+    );
   }
 
   bool _isDisposed = false;
@@ -42,6 +55,36 @@ class PlaybackController extends ChangeNotifier {
   Duration get duration => _player.duration ?? Duration.zero;
   Stream<Duration> get positionStream => _player.positionStream;
   bool get hasSleepTimer => _sleepTimer?.isActive ?? false;
+
+  void _trackListeningPosition(Duration position) {
+    final previous = _lastTrackedPosition;
+    _lastTrackedPosition = position;
+    if (!_player.playing || previous == null) return;
+    final elapsed = position - previous;
+    if (elapsed <= Duration.zero || elapsed > const Duration(seconds: 2)) {
+      return;
+    }
+
+    final session = _activeListeningSession;
+    if (session == null) return;
+    _activeListeningSession = session.copyWith(
+      listenedMilliseconds:
+          session.listenedMilliseconds + elapsed.inMilliseconds,
+    );
+    final now = DateTime.now();
+    final lastPublished = _lastPublishedAt;
+    if (lastPublished == null ||
+        now.difference(lastPublished) >= const Duration(seconds: 10)) {
+      _publishListeningSession();
+    }
+  }
+
+  void _publishListeningSession() {
+    final session = _activeListeningSession;
+    if (session == null) return;
+    _lastPublishedAt = DateTime.now();
+    onListeningSessionChanged?.call(session);
+  }
 
   Future<void> playQueue(List<MediaItem> items, int index) async {
     if (index < 0 || index >= items.length) return;
@@ -149,6 +192,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> play(MediaItem item) async {
+    _publishListeningSession();
+    _activeListeningSession = null;
+    _lastTrackedPosition = null;
     isLoading = true;
     current = item;
     notifyListeners();
@@ -178,6 +224,15 @@ class PlaybackController extends ChangeNotifier {
       }
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
+      _activeListeningSession = ListeningSession(
+        id: '${item.id}-${DateTime.now().microsecondsSinceEpoch}',
+        mediaId: item.id,
+        title: item.title,
+        artist: item.artist,
+        startedAt: DateTime.now(),
+        listenedMilliseconds: 0,
+      );
+      _publishListeningSession();
       isLoading = false;
       notifyListeners();
       unawaited(_player.play().catchError((Object _) {}));
@@ -210,9 +265,11 @@ class PlaybackController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _publishListeningSession();
     _isDisposed = true;
     _sleepTimer?.cancel();
     unawaited(_stateSubscription.cancel());
+    unawaited(_positionSubscription.cancel());
     unawaited(_player.dispose());
     final activeMediaPath = _activeMediaPath;
     if (activeMediaPath != null) {

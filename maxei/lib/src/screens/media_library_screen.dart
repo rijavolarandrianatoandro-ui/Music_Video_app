@@ -15,6 +15,8 @@ class MediaLibraryScreen extends StatelessWidget {
     required this.filter,
     required this.onFilterChanged,
     required this.onImport,
+    required this.onScanDeviceAudio,
+    required this.isScanningDeviceAudio,
     required this.onOpen,
     required this.onFavorite,
   });
@@ -25,23 +27,21 @@ class MediaLibraryScreen extends StatelessWidget {
   final MediaLibraryFilter filter;
   final ValueChanged<MediaLibraryFilter> onFilterChanged;
   final VoidCallback onImport;
+  final VoidCallback? onScanDeviceAudio;
+  final bool isScanningDeviceAudio;
   final ValueChanged<MediaItem> onOpen;
   final ValueChanged<MediaItem> onFavorite;
 
   @override
   Widget build(BuildContext context) {
     final items = this.items.where((item) {
-      final matchesQuery =
-          item.title.toLowerCase().contains(query) ||
-          item.artist.toLowerCase().contains(query);
-      return matchesQuery &&
-          switch (filter) {
-            MediaLibraryFilter.all => true,
-            MediaLibraryFilter.audio => item.kind == MediaKind.audio,
-            MediaLibraryFilter.video => item.kind == MediaKind.video,
-            MediaLibraryFilter.recent => item.lastPlayedAt != null,
-            MediaLibraryFilter.favorites => item.isFavorite,
-          };
+      return switch (filter) {
+        MediaLibraryFilter.all => true,
+        MediaLibraryFilter.audio => item.kind == MediaKind.audio,
+        MediaLibraryFilter.video => item.kind == MediaKind.video,
+        MediaLibraryFilter.recent => item.lastPlayedAt != null,
+        MediaLibraryFilter.favorites => item.isFavorite,
+      };
     }).toList();
     if (filter == MediaLibraryFilter.recent) {
       items.sort((a, b) => b.lastPlayedAt!.compareTo(a.lastPlayedAt!));
@@ -55,13 +55,34 @@ class MediaLibraryScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: ink,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: ink,
+                          fontSize: 27,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (onScanDeviceAudio != null)
+                      IconButton(
+                        tooltip: 'Analyser à nouveau la musique du téléphone',
+                        onPressed: isScanningDeviceAudio
+                            ? null
+                            : onScanDeviceAudio,
+                        icon: isScanningDeviceAudio
+                            ? const SizedBox.square(
+                                dimension: 19,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded, color: aqua),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 5),
                 Text(

@@ -35,6 +35,20 @@ que la bibliothèque et les playlists sont enregistrées séparément.
 Les anciennes importations Web encore présentes dans `localStorage` sont
 migrées vers IndexedDB lors de la restauration de la bibliothèque.
 
+## Bibliothèque audio Android
+
+Au premier lancement Android, Maxei demande uniquement l’accès système
+« Musique et audio », puis lit l’index MediaStore en arrière-plan pour afficher
+les morceaux présents sur les volumes audio accessibles. Les fichiers ne sont
+pas copiés : Android transmet à Maxei des URI de contenu qu’elle utilise pour
+la lecture. Si l’autorisation est refusée, les médias importés restent
+disponibles et l’accueil propose de réessayer ou d’ouvrir les paramètres.
+
+La recherche locale utilise un index de préfixes et de trigrammes construit en
+mémoire après le scan ; les modifications de bibliothèque le reconstruisent.
+Sur le Web et les autres plateformes, l’import de fichiers reste disponible,
+mais le scan automatique MediaStore est Android uniquement.
+
 ## Lecture audio native
 
 Sur Android, iOS et macOS, Maxei publie le titre et l’artiste aux commandes
@@ -54,3 +68,11 @@ le client avec l’URL du projet et sa clé publishable/anon. Ne jamais intégre
 une clé `service_role` au client Flutter. L’activation de la synchronisation
 nécessitera aussi un identifiant de média stable partagé entre appareils ; les
 chemins de fichiers locaux ne peuvent pas servir d’identifiants cloud.
+
+## Monthly listening recap
+
+Maxei stores local audio listening sessions (play starts and playback time) on
+the device. The Settings screen opens the previous month's recap, including
+listening time, most-played tracks and artist, liked tracks, active days, and
+listening streak. A dismissible monthly prompt is shown once when recap data is
+available. Listening history is not sent to a service.

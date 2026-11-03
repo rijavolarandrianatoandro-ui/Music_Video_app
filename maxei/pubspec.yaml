@@ -47,7 +47,7 @@ dependencies:
   shared_preferences: ^2.5.6
   idb_shim: ^2.10.1+1
   web: ^1.1.2
-
+  audio_metadata_reader: ^1.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maxei/src/media/media_item.dart';
 import 'package:maxei/src/media/media_library.dart';
+import 'package:maxei/src/media/listening_session.dart';
 import 'package:maxei/src/media/media_playlist.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,8 +32,16 @@ void main() {
             ..playCount = 3
             ..lastPlayedAt = lastPlayedAt;
       final playlist = MediaPlaylist('Evening mix')..mediaIds.add(item.id);
+      final session = ListeningSession(
+        id: 'session-1',
+        mediaId: item.id,
+        title: item.title,
+        artist: 'Artist',
+        startedAt: lastPlayedAt,
+        listenedMilliseconds: 120000,
+      );
 
-      await library.save([item], [playlist]);
+      await library.save([item], [playlist], listeningHistory: [session]);
       final restored = await library.restore();
 
       expect(restored.items, hasLength(1));
@@ -43,6 +52,9 @@ void main() {
       expect(restored.playlists, hasLength(1));
       expect(restored.playlists.single.name, 'Evening mix');
       expect(restored.playlists.single.mediaIds, [item.id]);
+      expect(restored.listeningHistory, hasLength(1));
+      expect(restored.listeningHistory.single.id, 'session-1');
+      expect(restored.listeningHistory.single.listenedMilliseconds, 120000);
     },
   );
 }

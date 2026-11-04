@@ -1,0 +1,12 @@
+name = "maxei-youtube-catalog"
+main = "src/index.mjs"
+compatibility_date = "2026-09-29"
+workers_dev = true
+
+[[ratelimits]]
+name = "SEARCH_LIMITER"
+namespace_id = "5472011"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60

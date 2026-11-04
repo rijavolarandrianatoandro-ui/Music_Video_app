@@ -8,7 +8,7 @@ class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
     required this.child,
-    this.radius = 18,
+    this.radius = 24,
     this.tint,
     this.padding,
   });
@@ -19,29 +19,29 @@ class LiquidGlass extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
+  Widget build(BuildContext context) => ClipRSuperellipse(
     borderRadius: BorderRadius.circular(radius),
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-            color: tint ?? surface.withValues(alpha: 0.84),
+          color: tint ?? surface.withValues(alpha: 0.84),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-                ink.withValues(alpha: tint == null ? 0.08 : 0.04),
-                (tint ?? surface).withValues(alpha: tint == null ? 0.82 : 0.88),
+              ink.withValues(alpha: tint == null ? 0.08 : 0.04),
+              (tint ?? surface).withValues(alpha: tint == null ? 0.82 : 0.88),
             ],
           ),
           borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: ink.withValues(alpha: 0.14)),
+          border: Border.all(color: ink.withValues(alpha: 0.14)),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.32),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: 0.32),
+              blurRadius: 30,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
@@ -65,11 +65,7 @@ class LiquidBackdrop extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: const [
-              Color(0xFF17191A),
-              Color(0xFF0D1113),
-              canvas,
-            ],
+            colors: const [Color(0xFF17191A), Color(0xFF0D1113), canvas],
             stops: [0, 0.48, 1],
           ),
         ),
@@ -102,10 +98,7 @@ class _AmbientGlow extends StatelessWidget {
     child: Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     ),
   );
 }

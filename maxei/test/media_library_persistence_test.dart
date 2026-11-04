@@ -49,6 +49,7 @@ void main() {
       expect(restored.items.single.isFavorite, isTrue);
       expect(restored.items.single.playCount, 3);
       expect(restored.items.single.lastPlayedAt, lastPlayedAt);
+      expect(restored.items.single.addedAt, item.addedAt);
       expect(restored.playlists, hasLength(1));
       expect(restored.playlists.single.name, 'Evening mix');
       expect(restored.playlists.single.mediaIds, [item.id]);

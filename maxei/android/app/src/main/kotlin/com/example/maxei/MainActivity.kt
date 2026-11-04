@@ -31,7 +31,7 @@ class MainActivity : AudioServiceActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "scanAudio" -> requestPermissionAndScan(result)
+                    "scanMedia" -> requestPermissionAndScan(result)
                     "openAppSettings" -> {
                         openAppSettings()
                         result.success(null)
@@ -146,23 +146,30 @@ class MainActivity : AudioServiceActivity() {
     private fun audioPermission(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
+        } else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    private fun videoPermission(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    private fun hasMediaPermission(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun requestPermissionAndScan(result: MethodChannel.Result) {
-        if (ContextCompat.checkSelfPermission(this, audioPermission()) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            scanAudio(result)
+        if (pendingScanResult != null) {
+            result.error("scan_in_progress", "Un scan média est déjà en cours.", null)
             return
         }
-        if (pendingScanResult != null) {
-            result.error("scan_in_progress", "Un scan audio est déjà en cours.", null)
+        val permissions = listOf(audioPermission(), videoPermission()).distinct()
+        val missingPermissions = permissions.filterNot(::hasMediaPermission)
+        if (missingPermissions.isEmpty()) {
+            scanMedia(result)
             return
         }
         pendingScanResult = result
-        requestPermissions(arrayOf(audioPermission()), permissionRequestCode)
+        requestPermissions(missingPermissions.toTypedArray(), permissionRequestCode)
     }
 
     @Deprecated("Deprecated in Android")
@@ -176,27 +183,29 @@ class MainActivity : AudioServiceActivity() {
 
         val result = pendingScanResult ?: return
         pendingScanResult = null
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            scanAudio(result)
-        } else {
-            result.success(
-                mapOf("permissionGranted" to false, "items" to emptyList<Map<String, Any?>>())
-            )
-        }
+        scanMedia(result)
     }
 
-    private fun scanAudio(result: MethodChannel.Result) {
+    private fun scanMedia(result: MethodChannel.Result) {
+        val canReadAudio = hasMediaPermission(audioPermission())
+        val canReadVideo = hasMediaPermission(videoPermission())
         scannerExecutor.execute {
             try {
-                val items = queryDeviceAudio()
+                val items = queryDeviceMedia(canReadAudio, canReadVideo)
                 mainHandler.post {
-                    result.success(mapOf("permissionGranted" to true, "items" to items))
+                    result.success(
+                        mapOf(
+                            "audioPermissionGranted" to canReadAudio,
+                            "videoPermissionGranted" to canReadVideo,
+                            "items" to items
+                        )
+                    )
                 }
             } catch (error: Exception) {
                 mainHandler.post {
                     result.error(
-                        "device_audio_scan_failed",
-                        "Impossible d’analyser la bibliothèque audio.",
+                        "device_media_scan_failed",
+                        "Impossible d’analyser la bibliothèque média.",
                         error.message
                     )
                 }
@@ -204,13 +213,24 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    private fun queryDeviceMedia(
+        canReadAudio: Boolean,
+        canReadVideo: Boolean
+    ): List<Map<String, Any?>> {
+        val items = mutableListOf<Map<String, Any?>>()
+        if (canReadAudio) items.addAll(queryDeviceAudio())
+        if (canReadVideo) items.addAll(queryDeviceVideo())
+        return items
+    }
+
+    private fun externalVolumes(): Set<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.getExternalVolumeNames(applicationContext)
+        } else setOf("external")
+
     private fun queryDeviceAudio(): List<Map<String, Any?>> {
         val resolver = applicationContext.contentResolver
-        val volumes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.getExternalVolumeNames(applicationContext)
-        } else {
-            setOf("external")
-        }
+        val volumes = externalVolumes()
         val columns = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.DISPLAY_NAME,
@@ -218,7 +238,8 @@ class MainActivity : AudioServiceActivity() {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DURATION
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATE_ADDED
         )
         val items = mutableListOf<Map<String, Any?>>()
         val seenUris = mutableSetOf<String>()
@@ -244,6 +265,8 @@ class MainActivity : AudioServiceActivity() {
                 val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                 val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
                 val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val dateAddedColumn =
+                    cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
 
                 while (cursor.moveToNext()) {
                     val uri = ContentUris.withAppendedId(
@@ -262,7 +285,75 @@ class MainActivity : AudioServiceActivity() {
                             "artist" to (cursor.getString(artistColumn) ?: ""),
                             "album" to (cursor.getString(albumColumn) ?: ""),
                             "size" to cursor.getLong(sizeColumn),
-                            "durationMs" to cursor.getLong(durationColumn)
+                            "durationMs" to cursor.getLong(durationColumn),
+                            "dateAdded" to cursor.getLong(dateAddedColumn),
+                            "kind" to "audio"
+                        )
+                    )
+                }
+            }
+        }
+        return items
+    }
+
+    private fun queryDeviceVideo(): List<Map<String, Any?>> {
+        val resolver = applicationContext.contentResolver
+        val items = mutableListOf<Map<String, Any?>>()
+        val seenUris = mutableSetOf<String>()
+        val columns = arrayOf(
+            MediaStore.Video.Media._ID,
+            MediaStore.Video.Media.DISPLAY_NAME,
+            MediaStore.Video.Media.TITLE,
+            MediaStore.Video.Media.SIZE,
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.DATE_ADDED
+        )
+        val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "${MediaStore.Video.Media.IS_PENDING} = 0"
+        } else null
+
+        for (volume in externalVolumes()) {
+            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Video.Media.getContentUri(volume)
+            } else {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            }
+            val cursor = resolver.query(
+                collection,
+                columns,
+                selection,
+                null,
+                null
+            ) ?: throw IllegalStateException("MediaStore video query returned no cursor")
+            cursor.use {
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val nameColumn =
+                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+                val durationColumn =
+                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                val dateAddedColumn =
+                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+
+                while (cursor.moveToNext()) {
+                    val uri = ContentUris.withAppendedId(
+                        collection,
+                        cursor.getLong(idColumn)
+                    ).toString()
+                    if (!seenUris.add(uri)) continue
+                    val name = cursor.getString(nameColumn)
+                        ?: cursor.getString(titleColumn)
+                        ?: "video"
+                    items.add(
+                        mapOf(
+                            "uri" to uri,
+                            "name" to name,
+                            "title" to (cursor.getString(titleColumn) ?: ""),
+                            "size" to cursor.getLong(sizeColumn),
+                            "durationMs" to cursor.getLong(durationColumn),
+                            "dateAdded" to cursor.getLong(dateAddedColumn),
+                            "kind" to "video"
                         )
                     )
                 }

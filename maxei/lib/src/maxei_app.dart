@@ -4,10 +4,12 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'media/media_item.dart';
 import 'media/media_search_index.dart';
 import 'media/app_settings.dart';
+import 'media/youtube_catalog_service.dart';
 import 'media/listening_recap.dart';
 import 'media/listening_session.dart';
 import 'media/media_library.dart';
@@ -16,6 +18,7 @@ import 'media/media_downloader.dart';
 import 'media/media_providers.dart';
 import 'media/playback_controller.dart';
 import 'screens/browser_screen.dart';
+import 'screens/artist_selection_dialog.dart';
 import 'screens/home_screen.dart';
 import 'screens/link_import_screen.dart';
 import 'screens/listening_recap_screen.dart';
@@ -23,6 +26,7 @@ import 'screens/media_library_screen.dart';
 import 'screens/playlist_library_screen.dart';
 import 'screens/player_screens.dart';
 import 'screens/settings_screen.dart';
+import 'screens/youtube_search_screen.dart';
 import 'theme/maxei_theme.dart';
 import 'widgets/liquid_surface.dart';
 import 'widgets/media_artwork.dart';
@@ -52,11 +56,12 @@ class _MediaShell extends StatefulWidget {
   State<_MediaShell> createState() => _MediaShellState();
 }
 
-class _MediaShellState extends State<_MediaShell> {
+class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
   final _library = MediaLibrary();
   final _searchIndex = MediaSearchIndex();
   late final PlaybackController _playback;
   final _settings = AppSettings();
+  final _connectivity = Connectivity();
   final _searchController = TextEditingController();
   final _pageController = PageController();
   final List<MediaItem> _items = [];
@@ -64,11 +69,14 @@ class _MediaShellState extends State<_MediaShell> {
   final List<ListeningSession> _listeningHistory = [];
   final List<int> _tabHistory = [];
   MediaLibraryFilter _libraryFilter = MediaLibraryFilter.all;
+  MediaSortOrder _mediaSortOrder = MediaSortOrder.name;
   int _tab = 0;
   bool _searchOpen = false;
   bool _isImporting = false;
-  bool _isScanningDeviceAudio = false;
-  bool _deviceAudioPermissionDenied = false;
+  bool _isScanningDeviceMedia = false;
+  bool _deviceAudioPermissionGranted = false;
+  bool _deviceVideoPermissionGranted = false;
+  bool _deviceMediaPermissionDenied = false;
   bool _showStartupWarning = true;
   bool _libraryReady = false;
   bool _settingsReady = false;
@@ -76,10 +84,23 @@ class _MediaShellState extends State<_MediaShell> {
   bool _browserInitialized = false;
   String _webSearchQuery = '';
   int _webSearchRequestId = 0;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _artistSetupPromptVisible = false;
+  bool _workerAvailable = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+      _handleConnectivityChanged,
+      onError: (Object error) {
+        if (mounted) {
+          _showMessage('État de la connexion indisponible : $error');
+        }
+      },
+    );
+    unawaited(_checkNetworkForArtistSetup());
     _playback = PlaybackController(
       onListeningSessionChanged: _recordListeningSession,
     );
@@ -89,10 +110,108 @@ class _MediaShellState extends State<_MediaShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_connectivitySubscription?.cancel());
     _playback.dispose();
     _searchController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_checkNetworkForArtistSetup());
+    }
+  }
+
+  void _handleConnectivityChanged(List<ConnectivityResult> results) {
+    if (results.any((result) => result != ConnectivityResult.none)) {
+      unawaited(_checkNetworkForArtistSetup());
+    } else {
+      _workerAvailable = false;
+    }
+  }
+
+  Future<void> _checkNetworkForArtistSetup() async {
+    try {
+      final results = await _connectivity.checkConnectivity();
+      if (!results.any((result) => result != ConnectivityResult.none)) {
+        _workerAvailable = false;
+        return;
+      }
+      final service = YoutubeCatalogService();
+      try {
+        _workerAvailable = await service.isAvailable();
+        if (_workerAvailable) unawaited(_maybeShowArtistSetup());
+      } finally {
+        service.dispose();
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Impossible de vérifier la connexion réseau : $error');
+      }
+    }
+  }
+
+  Future<void> _maybeShowArtistSetup() async {
+    if (!mounted ||
+        !_libraryReady ||
+        !_settingsReady ||
+        !_workerAvailable ||
+        _artistSetupPromptVisible ||
+        _settings.artistSetupCompleted ||
+        _recapPromptScheduled) {
+      return;
+    }
+    _artistSetupPromptVisible = true;
+    try {
+      final selection = await showDialog<List<String>>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ArtistSelectionDialog(
+          initialSelection: _settings.preferredArtistIds,
+        ),
+      );
+      if (!mounted || selection == null) return;
+      if (selection.length == 5) {
+        _settings.preferredArtistIds = selection;
+      }
+      _settings.artistSetupCompleted = true;
+      await _saveSettings();
+      if (mounted) setState(() {});
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          'Les préférences musicales n’ont pas été enregistrées : $error',
+        );
+      }
+    } finally {
+      _artistSetupPromptVisible = false;
+      if (mounted) _maybeShowMonthlyRecap();
+    }
+  }
+
+  Future<void> _editPreferredArtists() async {
+    final selection = await showDialog<List<String>>(
+      context: context,
+      builder: (_) =>
+          ArtistSelectionDialog(initialSelection: _settings.preferredArtistIds),
+    );
+    if (!mounted || selection == null || selection.length != 5) return;
+    _settings
+      ..preferredArtistIds = selection
+      ..artistSetupCompleted = true;
+    try {
+      await _saveSettings();
+      if (mounted) setState(() {});
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          'Les artistes préférés n’ont pas été enregistrés : $error',
+        );
+      }
+    }
   }
 
   void _selectTab(int index, {bool rememberCurrent = true}) {
@@ -180,13 +299,13 @@ class _MediaShellState extends State<_MediaShell> {
       _maybeShowMonthlyRecap();
       if (isAndroid) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_scanDeviceAudio(showResult: false));
+          if (mounted) unawaited(_scanDeviceMedia(showResult: false));
         });
       }
     } catch (error) {
       if (mounted) {
         setState(() {
-          _deviceAudioPermissionDenied = isAndroid;
+          _deviceMediaPermissionDenied = isAndroid;
         });
         _showMessage(
           'La bibliothèque locale n’a pas pu être restaurée : $error',
@@ -200,7 +319,7 @@ class _MediaShellState extends State<_MediaShell> {
     }
   }
 
-  MediaItem _restoreDeviceAudioState(MediaItem scanned, MediaItem? saved) {
+  MediaItem _restoreDeviceMediaState(MediaItem scanned, MediaItem? saved) {
     if (saved == null) return scanned;
     return scanned
       ..isFavorite = saved.isFavorite
@@ -208,15 +327,21 @@ class _MediaShellState extends State<_MediaShell> {
       ..lastPlayedAt = saved.lastPlayedAt;
   }
 
-  bool get _canScanDeviceAudio =>
+  bool get _canScanDeviceMedia =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   int _compareMedia(MediaItem a, MediaItem b) =>
       a.title.toLowerCase().compareTo(b.title.toLowerCase());
 
+  List<MediaItem> get _visibleItems =>
+      _items.where((item) => !item.isShortAudio).toList(growable: false);
+
+  List<MediaItem> get _hiddenShortAudioItems =>
+      _items.where((item) => item.isShortAudio).toList(growable: false);
+
   Future<void> _rebuildSearchIndex() async {
     try {
-      await _searchIndex.rebuildInBackground(_items);
+      await _searchIndex.rebuildInBackground(_visibleItems);
     } catch (error) {
       if (mounted) {
         _showMessage('L’index de recherche n’a pas pu être construit : $error');
@@ -224,18 +349,22 @@ class _MediaShellState extends State<_MediaShell> {
     }
   }
 
-  Future<void> _scanDeviceAudio({bool showResult = true}) async {
-    if (_isScanningDeviceAudio ||
+  Future<void> _scanDeviceMedia({bool showResult = true}) async {
+    if (_isScanningDeviceMedia ||
         kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
-    setState(() => _isScanningDeviceAudio = true);
+    setState(() => _isScanningDeviceMedia = true);
     try {
-      final result = await _library.scanDeviceAudio();
+      final result = await _library.scanDeviceMedia();
       if (!mounted) return;
-      if (!result.permissionGranted) {
-        setState(() => _deviceAudioPermissionDenied = true);
+      if (!result.audioPermissionGranted && !result.videoPermissionGranted) {
+        setState(() {
+          _deviceAudioPermissionGranted = false;
+          _deviceVideoPermissionGranted = false;
+          _deviceMediaPermissionDenied = true;
+        });
         _showPermissionMessage();
         return;
       }
@@ -243,39 +372,54 @@ class _MediaShellState extends State<_MediaShell> {
       final existingById = {for (final item in _items) item.id: item};
       final scannedItems = [
         for (final item in result.items)
-          _restoreDeviceAudioState(item, existingById[item.id]),
+          if ((item.kind == MediaKind.audio && result.audioPermissionGranted) ||
+              (item.kind == MediaKind.video && result.videoPermissionGranted))
+            _restoreDeviceMediaState(item, existingById[item.id]),
       ];
+      final unscannedDeviceItems = _items
+          .where((item) {
+            if (item.uri.scheme != 'content') return false;
+            return item.kind == MediaKind.audio
+                ? !result.audioPermissionGranted
+                : !result.videoPermissionGranted;
+          })
+          .toList(growable: false);
       final localItems = _items
           .where((item) => item.uri.scheme != 'content')
-          .toList();
+          .toList(growable: false);
       setState(() {
         _items
           ..clear()
-          ..addAll([...scannedItems, ...localItems])
+          ..addAll([...scannedItems, ...unscannedDeviceItems, ...localItems])
           ..sort(_compareMedia);
-        _deviceAudioPermissionDenied = false;
+        _deviceAudioPermissionGranted = result.audioPermissionGranted;
+        _deviceVideoPermissionGranted = result.videoPermissionGranted;
+        _deviceMediaPermissionDenied =
+            !result.audioPermissionGranted || !result.videoPermissionGranted;
       });
       unawaited(_rebuildSearchIndex());
       final saved = await _persistLibrary();
       if (showResult && saved) {
-        _showMessage(
-          '${result.items.length} morceau(s) trouvés sur l’appareil.',
-        );
+        _showMessage('${result.items.length} média(s) trouvés sur l’appareil.');
       }
     } catch (error) {
-      if (mounted) _showMessage('Le scan des musiques a échoué : $error');
+      if (mounted) _showMessage('Le scan des médias a échoué : $error');
     } finally {
-      if (mounted) setState(() => _isScanningDeviceAudio = false);
+      if (mounted) setState(() => _isScanningDeviceMedia = false);
     }
   }
 
   void _showPermissionMessage() {
+    final missingTypes = [
+      if (!_deviceAudioPermissionGranted) 'audio',
+      if (!_deviceVideoPermissionGranted) 'vidéo',
+    ].join(' et ');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text(
-            'Autorisez l’accès à Musique et audio pour analyser vos morceaux.',
+          content: Text(
+            'Autorisez l’accès aux fichiers $missingTypes pour analyser votre bibliothèque.',
           ),
           action: SnackBarAction(
             label: 'Paramètres',
@@ -294,24 +438,35 @@ class _MediaShellState extends State<_MediaShell> {
         ..shuffle = saved.shuffle
         ..repeatMode = saved.repeatMode
         ..confirmDownloads = saved.confirmDownloads
-        ..dismissedRecapMonth = saved.dismissedRecapMonth;
+        ..dismissedRecapMonth = saved.dismissedRecapMonth
+        ..preferredArtistIds = saved.preferredArtistIds
+        ..artistSetupCompleted =
+            saved.artistSetupCompleted || saved.preferredArtistIds.length == 5
+        ..regionalTrendsEnabled = saved.regionalTrendsEnabled
+        ..trendingCountryCode = saved.trendingCountryCode
+        ..regionalTrendsConsentAccepted = saved.regionalTrendsConsentAccepted;
       _playback
         ..setShuffle(_settings.shuffle)
         ..setRepeatMode(_settings.repeatMode);
       _settingsReady = true;
       _maybeShowMonthlyRecap();
+      unawaited(_checkNetworkForArtistSetup());
       await _playback.setVolume(_settings.volume);
       await _playback.setSpeed(_settings.speed);
     } catch (error) {
       _settingsReady = true;
       _maybeShowMonthlyRecap();
+      unawaited(_checkNetworkForArtistSetup());
       if (mounted) {
         _showMessage('Les paramètres n’ont pas pu être restaurés : $error');
       }
     }
   }
 
-  Future<void> _saveSettings() => _settings.save();
+  Future<void> _saveSettings() async {
+    await _settings.save();
+    if (mounted) setState(() {});
+  }
 
   void _recordListeningSession(ListeningSession session) {
     final existingIndex = _listeningHistory.indexWhere(
@@ -331,8 +486,13 @@ class _MediaShellState extends State<_MediaShell> {
   String _recapMonthKey(DateTime month) =>
       '${month.year}-${month.month.toString().padLeft(2, '0')}';
 
-  ListeningRecap _monthlyRecap() =>
-      ListeningRecap.forPreviousMonth(_listeningHistory, _items);
+  ListeningRecap _monthlyRecap() {
+    final hiddenIds = _hiddenShortAudioItems.map((item) => item.id).toSet();
+    final visibleHistory = _listeningHistory
+        .where((session) => !hiddenIds.contains(session.mediaId))
+        .toList(growable: false);
+    return ListeningRecap.forPreviousMonth(visibleHistory, _visibleItems);
+  }
 
   void _maybeShowMonthlyRecap() {
     if (!mounted ||
@@ -342,9 +502,15 @@ class _MediaShellState extends State<_MediaShell> {
       return;
     }
     final recap = _monthlyRecap();
-    if (recap.sessions.isEmpty) return;
+    if (recap.sessions.isEmpty) {
+      unawaited(_maybeShowArtistSetup());
+      return;
+    }
     final monthKey = _recapMonthKey(recap.start);
-    if (_settings.dismissedRecapMonth == monthKey) return;
+    if (_settings.dismissedRecapMonth == monthKey) {
+      unawaited(_maybeShowArtistSetup());
+      return;
+    }
 
     _recapPromptScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -393,6 +559,7 @@ class _MediaShellState extends State<_MediaShell> {
     if (!mounted) return;
     await _dismissMonthlyRecap(monthKey);
     if (showRecap == true && mounted) _openListeningRecap(recap);
+    unawaited(_maybeShowArtistSetup());
   }
 
   Future<void> _dismissMonthlyRecap(String monthKey) async {
@@ -422,7 +589,8 @@ class _MediaShellState extends State<_MediaShell> {
           playback: _playback,
           onChanged: _saveSettings,
           onOpenRecap: _openListeningRecap,
-          listeningSessionCount: _listeningHistory.length,
+          hiddenAudioItems: _hiddenShortAudioItems,
+          onEditArtists: _editPreferredArtists,
         ),
       ),
     );
@@ -461,6 +629,14 @@ class _MediaShellState extends State<_MediaShell> {
     _selectTab(1);
   }
 
+  Future<void> _refreshLibrary() async {
+    if (_canScanDeviceMedia) {
+      await _scanDeviceMedia(showResult: false);
+    } else {
+      await _rebuildSearchIndex();
+    }
+  }
+
   void _searchWeb() {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
@@ -471,6 +647,25 @@ class _MediaShellState extends State<_MediaShell> {
       _webSearchRequestId++;
     });
     _selectTab(3);
+  }
+
+  void _submitSearch() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final query = _searchController.text.trim();
+      if (query.isEmpty) return;
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _searchOpen = false;
+        _searchController.clear();
+      });
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => YoutubeSearchScreen(initialQuery: query),
+        ),
+      );
+      return;
+    }
+    _searchWeb();
   }
 
   Future<void> _importMedia() async {
@@ -538,7 +733,10 @@ class _MediaShellState extends State<_MediaShell> {
   }
 
   void _openMedia(MediaItem item, List<MediaItem> queue) {
-    if (item.uri.scheme == 'content' && _deviceAudioPermissionDenied) {
+    if (item.uri.scheme == 'content' &&
+        (item.kind == MediaKind.audio
+            ? !_deviceAudioPermissionGranted
+            : !_deviceVideoPermissionGranted)) {
       _showPermissionMessage();
       return;
     }
@@ -584,14 +782,17 @@ class _MediaShellState extends State<_MediaShell> {
 
   @override
   Widget build(BuildContext context) {
-    final audioItems = _items
+    final visibleItems = _visibleItems;
+    final audioItems = visibleItems
         .where((item) => item.kind == MediaKind.audio)
         .toList();
-    final videoItems = _items
+    final videoItems = visibleItems
         .where((item) => item.kind == MediaKind.video)
         .toList();
     final query = _searchController.text.trim().toLowerCase();
-    final searchResults = query.isEmpty ? _items : _searchIndex.search(query);
+    final searchResults = query.isEmpty
+        ? visibleItems
+        : _searchIndex.search(query);
     return PopScope<Object?>(
       canPop: _tab == 0 && _tabHistory.isEmpty,
       onPopInvokedWithResult: (didPop, _) => _handleSystemBack(didPop),
@@ -613,16 +814,26 @@ class _MediaShellState extends State<_MediaShell> {
                   controller: _searchController,
                   autofocus: true,
                   onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) => _searchWeb(),
+                  onSubmitted: (_) => _submitSearch(),
                   textInputAction: TextInputAction.search,
                   style: const TextStyle(color: ink, fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Médias ou recherche Web',
+                    hintText:
+                        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+                        ? 'Médias ou recherche YouTube'
+                        : 'Médias ou recherche Web',
                     border: InputBorder.none,
                     suffixIcon: IconButton(
-                      tooltip: 'Rechercher sur le Web',
-                      onPressed: _searchWeb,
-                      icon: const Icon(Icons.public_rounded),
+                      tooltip:
+                          !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+                          ? 'Rechercher sur YouTube'
+                          : 'Rechercher sur le Web',
+                      onPressed: _submitSearch,
+                      icon: Icon(
+                        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+                            ? Icons.play_circle_outline_rounded
+                            : Icons.public_rounded,
+                      ),
                     ),
                   ),
                 )
@@ -633,7 +844,7 @@ class _MediaShellState extends State<_MediaShell> {
                       height: 31,
                       decoration: BoxDecoration(
                         color: aqua,
-                        borderRadius: BorderRadius.circular(9),
+                        shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.equalizer_rounded,
@@ -677,7 +888,7 @@ class _MediaShellState extends State<_MediaShell> {
               icon: const Icon(Icons.link_rounded),
             ),
             IconButton(
-              tooltip: 'Importer des fichiers audio ou vidéo',
+              tooltip: 'Importer des médias',
               onPressed: _isImporting || !_libraryReady ? null : _importMedia,
               icon: _isImporting
                   ? const SizedBox.square(
@@ -724,12 +935,16 @@ class _MediaShellState extends State<_MediaShell> {
                             items: searchResults,
                             playlists: _playlists,
                             query: query,
-                            deviceAudioPermissionDenied:
-                                _deviceAudioPermissionDenied,
-                            isScanningDeviceAudio: _isScanningDeviceAudio,
+                            regionalTrendsEnabled:
+                                _settings.regionalTrendsEnabled,
+                            trendingCountryCode: _settings.trendingCountryCode,
+                            preferredArtistIds: _settings.preferredArtistIds,
+                            deviceMediaPermissionDenied:
+                                _deviceMediaPermissionDenied,
+                            isScanningDeviceMedia: _isScanningDeviceMedia,
                             onImport: _importMedia,
-                            onScanDeviceAudio: _canScanDeviceAudio
-                                ? _scanDeviceAudio
+                            onScanDeviceMedia: _canScanDeviceMedia
+                                ? _scanDeviceMedia
                                 : null,
                             onOpen: (item) => _openMedia(
                               item,
@@ -746,24 +961,27 @@ class _MediaShellState extends State<_MediaShell> {
                             items: searchResults,
                             query: query,
                             filter: _libraryFilter,
+                            sortOrder: _mediaSortOrder,
+                            onSortChanged: (order) =>
+                                setState(() => _mediaSortOrder = order),
+                            onRefresh: _refreshLibrary,
                             onFilterChanged: (filter) =>
                                 setState(() => _libraryFilter = filter),
                             onImport: _importMedia,
-                            onScanDeviceAudio: _canScanDeviceAudio
-                                ? _scanDeviceAudio
-                                : null,
-                            isScanningDeviceAudio: _isScanningDeviceAudio,
-                            onOpen: (item) => _openMedia(
+                            onOpen: (item, visibleQueue) => _openMedia(
                               item,
-                              item.kind == MediaKind.audio
-                                  ? audioItems
-                                  : videoItems,
+                              visibleQueue
+                                  .where(
+                                    (queuedItem) =>
+                                        queuedItem.kind == MediaKind.audio,
+                                  )
+                                  .toList(growable: false),
                             ),
                             onFavorite: (item) => _toggleFavorite(item),
                           ),
                           PlaylistLibraryScreen(
                             playlists: _playlists,
-                            mediaItems: _items,
+                            mediaItems: visibleItems,
                             onChanged: _onPlaylistsChanged,
                             onPlay: _playPlaylist,
                           ),

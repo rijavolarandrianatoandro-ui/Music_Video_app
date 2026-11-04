@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../media/app_settings.dart';
+import '../media/media_item.dart';
+import '../media/music_discovery_catalog.dart';
 import '../media/playback_controller.dart';
 import '../theme/maxei_theme.dart';
 import '../widgets/liquid_surface.dart';
+import '../widgets/pixel_artist_avatar.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -12,14 +16,16 @@ class SettingsScreen extends StatelessWidget {
     required this.playback,
     required this.onChanged,
     required this.onOpenRecap,
-    required this.listeningSessionCount,
+    required this.hiddenAudioItems,
+    required this.onEditArtists,
   });
 
   final AppSettings settings;
   final PlaybackController playback;
   final Future<void> Function() onChanged;
   final VoidCallback onOpenRecap;
-  final int listeningSessionCount;
+  final List<MediaItem> hiddenAudioItems;
+  final VoidCallback onEditArtists;
 
   Future<void> _save(BuildContext context) async {
     try {
@@ -40,6 +46,183 @@ class SettingsScreen extends StatelessWidget {
     PlaybackRepeatMode.all => 'Toute la file',
     PlaybackRepeatMode.one => 'Titre en cours',
   };
+
+  Future<void> _openYoutubeTerms(BuildContext context) async {
+    try {
+      final opened = await launchUrl(
+        Uri.https('www.youtube.com', '/t/terms'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened || !context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible d’ouvrir les conditions YouTube.'),
+        ),
+      );
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Impossible d’ouvrir les conditions YouTube : $error',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openGooglePrivacy(BuildContext context) async {
+    try {
+      final opened = await launchUrl(
+        Uri.https('policies.google.com', '/privacy'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened || !context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible d’ouvrir la confidentialité Google.'),
+        ),
+      );
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Impossible d’ouvrir la politique Google : $error'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _setRegionalTrends(BuildContext context, bool enabled) async {
+    if (enabled && regionByCode(settings.trendingCountryCode) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choisissez d’abord un pays de tendances.'),
+        ),
+      );
+      return;
+    }
+    if (enabled && !settings.regionalTrendsConsentAccepted) {
+      final region = regionByCode(settings.trendingCountryCode)!;
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Activer les tendances régionales ?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Maxei enverra le code pays choisi (${region.name}) au Worker '
+                'Maxei, qui interrogera YouTube pour récupérer les vidéos '
+                'musicales populaires de cette région. Aucune position GPS '
+                'n’est demandée. Les artistes et écoutes de votre bibliothèque '
+                'servent uniquement au classement local. Les résultats seront '
+                'identifiés comme provenant de YouTube et s’ouvriront dans '
+                'YouTube. En activant cette fonction, vous acceptez les '
+                'conditions d’utilisation YouTube et reconnaissez que '
+                'Maxei utilise les services API YouTube.',
+              ),
+              TextButton(
+                onPressed: () => _openYoutubeTerms(context),
+                child: const Text('Conditions d’utilisation YouTube'),
+              ),
+              TextButton(
+                onPressed: () => _openGooglePrivacy(context),
+                child: const Text('Confidentialité Google'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Accepter et activer'),
+            ),
+          ],
+        ),
+      );
+      if (!context.mounted) return;
+      if (accepted != true) return;
+      settings.regionalTrendsConsentAccepted = true;
+    }
+    settings.regionalTrendsEnabled = enabled;
+    await _save(context);
+  }
+
+  void _showHiddenFiles(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.72,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Fichiers masqués',
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Fermer',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: hiddenAudioItems.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Aucun fichier masqué',
+                          style: TextStyle(color: mutedInk),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: hiddenAudioItems.length,
+                        itemBuilder: (context, index) {
+                          final item = hiddenAudioItems[index];
+                          return ListTile(
+                            leading: const Icon(
+                              Icons.music_off_rounded,
+                              color: aqua,
+                            ),
+                            title: Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              '${item.artist} · ${(item.durationMs! / 1000).toStringAsFixed(1)} s',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -143,6 +326,102 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
+            const _SectionTitle('DÉCOUVERTE MUSICALE'),
+            LiquidGlass(
+              radius: 20,
+              child: Column(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.person_search_rounded,
+                        color: aqua,
+                      ),
+                      title: const Text('Artistes préférés'),
+                      subtitle: Text(
+                        '${settings.preferredArtistIds.length} sélectionnés · '
+                        'choisir 5 pour personnaliser les suggestions',
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: ink,
+                      ),
+                      onTap: onEditArtists,
+                    ),
+                  ),
+                  if (settings.preferredArtistIds.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final id in settings.preferredArtistIds)
+                            if (artistById(id) case final artist?)
+                              Chip(
+                                avatar: PixelArtistAvatar(
+                                  artistId: id,
+                                  size: 28,
+                                ),
+                                label: Text(artist.name),
+                              ),
+                        ],
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: regionByCode(settings.trendingCountryCode)
+                          ?.code,
+                      decoration: const InputDecoration(
+                        labelText: 'Pays des tendances',
+                        helperText:
+                            'Choisissez votre région de référence, '
+                            'indépendamment de votre emplacement.',
+                      ),
+                      items: [
+                        for (final region in musicRegions)
+                          DropdownMenuItem(
+                            value: region.code,
+                            child: Text(region.name),
+                          ),
+                      ],
+                      onChanged: (code) {
+                        if (code == null) return;
+                        settings.trendingCountryCode = code;
+                        _save(context);
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.public_rounded, color: aqua),
+                        const SizedBox(width: 14),
+                        const Expanded(child: Text('Tendances régionales')),
+                        Switch.adaptive(
+                          value: settings.regionalTrendsEnabled,
+                          onChanged: (value) =>
+                              _setRegionalTrends(context, value),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: Text(
+                      'Désactivées par défaut. Aucun GPS n’est utilisé. '
+                      'Les résultats affichent leur source YouTube.',
+                      style: TextStyle(color: mutedInk, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
             const _SectionTitle('VOTRE MUSIQUE'),
             LiquidGlass(
               radius: 20,
@@ -160,24 +439,38 @@ class SettingsScreen extends StatelessWidget {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Récapitulatif musical'),
-                            const SizedBox(height: 4),
-                            Text(
-                              listeningSessionCount == 0
-                                  ? 'Vos écoutes resteront ici, sur cet appareil.'
-                                  : '$listeningSessionCount écoutes enregistrées sur cet appareil.',
-                              style: const TextStyle(
-                                color: mutedInk,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                          children: [const Text('Récapitulatif musical')],
                         ),
                       ),
                       const Icon(Icons.chevron_right_rounded, color: ink),
                     ],
                   ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            const _SectionTitle('BIBLIOTHÈQUE'),
+            LiquidGlass(
+              radius: 20,
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.visibility_off_outlined,
+                    color: aqua,
+                  ),
+                  title: const Text('Fichiers masqués'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${hiddenAudioItems.length}',
+                        style: const TextStyle(color: mutedInk),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: ink),
+                    ],
+                  ),
+                  onTap: () => _showHiddenFiles(context),
                 ),
               ),
             ),
@@ -200,14 +493,7 @@ class SettingsScreen extends StatelessWidget {
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Confirmer les téléchargements'),
-                          SizedBox(height: 4),
-                          Text(
-                            'Demander une confirmation avant d’enregistrer un média.',
-                            style: TextStyle(color: mutedInk, fontSize: 12),
-                          ),
-                        ],
+                        children: [Text('Confirmer les téléchargements')],
                       ),
                     ),
                     Switch.adaptive(
@@ -218,18 +504,6 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            const _SectionTitle('À PROPOS DE MAXEI'),
-            LiquidGlass(
-              radius: 20,
-              child: const ListTile(
-                leading: Icon(Icons.info_outline_rounded, color: aqua),
-                title: Text('Lecteur local, privé par défaut'),
-                subtitle: Text(
-                  'Vos médias importés restent dans la bibliothèque de cet appareil.',
                 ),
               ),
             ),

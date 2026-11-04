@@ -12,7 +12,8 @@ class MediaItem {
       title = _trackTitle(file.name),
       artist = _artistFrom(file.name),
       album = '',
-      durationMs = null;
+      durationMs = null,
+      addedAt = DateTime.now();
 
   MediaItem.downloaded({
     required String name,
@@ -27,7 +28,8 @@ class MediaItem {
        title = _trackTitle(name),
        artist = _artistFrom(name),
        album = '',
-       durationMs = null;
+       durationMs = null,
+       addedAt = DateTime.now();
 
   MediaItem.stored({
     required this.name,
@@ -38,9 +40,11 @@ class MediaItem {
     String? artist,
     this.album = '',
     this.durationMs,
+    DateTime? addedAt,
   }) : id = uri.toString(),
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
+       addedAt = addedAt ?? DateTime.now(),
        title = title?.trim().isNotEmpty == true
            ? title!.trim()
            : _trackTitle(name),
@@ -56,10 +60,12 @@ class MediaItem {
     required this.artist,
     required this.album,
     required this.durationMs,
+    DateTime? addedAt,
   }) : id = uri.toString(),
        sizeBytes = size,
        extension = name.contains('.') ? name.split('.').last.toLowerCase() : '',
        kind = MediaKind.audio,
+       addedAt = addedAt ?? DateTime.now(),
        title = title.trim().isEmpty ? _trackTitle(name) : title.trim();
 
   final Uri uri;
@@ -72,9 +78,15 @@ class MediaItem {
   final String artist;
   final String album;
   final int? durationMs;
+  final DateTime addedAt;
   bool isFavorite = false;
   int playCount = 0;
   DateTime? lastPlayedAt;
+
+  bool get isShortAudio =>
+      kind == MediaKind.audio &&
+      durationMs != null &&
+      durationMs! < const Duration(seconds: 10).inMilliseconds;
 
   String get sizeLabel {
     final bytes = sizeBytes;
@@ -93,6 +105,7 @@ class MediaItem {
     'artist': artist,
     'album': album,
     'durationMs': durationMs,
+    'addedAt': addedAt.toIso8601String(),
     'favorite': isFavorite,
     'playCount': playCount,
     'lastPlayedAt': lastPlayedAt?.toIso8601String(),
@@ -112,6 +125,9 @@ class MediaItem {
             artist: json['artist'] as String?,
             album: json['album'] as String? ?? '',
             durationMs: (json['durationMs'] as num?)?.toInt(),
+            addedAt:
+                DateTime.tryParse(json['addedAt'] as String? ?? '') ??
+                DateTime.now(),
           )
           ..isFavorite = json['favorite'] as bool? ?? false
           ..playCount = (json['playCount'] as num?)?.toInt() ?? 0;

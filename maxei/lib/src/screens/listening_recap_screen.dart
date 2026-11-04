@@ -36,7 +36,7 @@ class ListeningRecapScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: canvas,
     appBar: AppBar(
-      title: const Text('Votre récap musical'),
+      title: const Text('Récap musical'),
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
     ),
@@ -54,23 +54,12 @@ class ListeningRecapScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Votre mois,\nen musique.',
-            style: TextStyle(
-              color: ink,
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              height: 1.04,
-            ),
-          ),
-          const SizedBox(height: 18),
           if (recap.sessions.isEmpty)
             LiquidGlass(
               radius: 22,
               padding: const EdgeInsets.all(18),
               child: const Text(
-                'Pas encore assez d’écoutes enregistrées pour ce mois. '
-                'Vos prochaines lectures apparaîtront ici.',
+                'Pas encore d’écoutes ce mois-ci.',
                 style: TextStyle(color: ink, height: 1.5),
               ),
             ),
@@ -166,11 +155,6 @@ class ListeningRecapScreen extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           _MonthlyComparison(recap: recap),
-          const SizedBox(height: 16),
-          const Text(
-            'Statistiques calculées sur cet appareil à partir des lectures effectuées dans Maxei. Rien n’est envoyé à un service externe.',
-            style: TextStyle(color: mutedInk, fontSize: 11, height: 1.45),
-          ),
         ],
       ),
     ),

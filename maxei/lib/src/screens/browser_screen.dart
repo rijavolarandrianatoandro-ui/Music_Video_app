@@ -272,7 +272,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Enregistrer ce média ?'),
           content: const Text(
-            'Confirmez que vous possédez ce fichier ou avez l’autorisation de le télécharger. Le fichier sera enregistré dans l’espace privé de Maxei.',
+            'Vérifiez que vous êtes autorisé à enregistrer ce fichier.',
           ),
           actions: [
             TextButton(
@@ -433,7 +433,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Sur PC, Maxei ouvre les recherches et les adresses dans votre navigateur par défaut.',
+                          'Ouvrir dans le navigateur par défaut.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: ink.withValues(alpha: 0.72)),
                         ),

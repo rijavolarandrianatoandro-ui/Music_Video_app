@@ -2,10 +2,11 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'media_downloader.dart';
-import 'device_audio_scanner.dart';
+import 'device_media_scanner.dart';
 import 'media_file_store.dart';
 import 'media_item.dart';
 import 'listening_session.dart';
@@ -27,7 +28,7 @@ class MediaLibrary {
   static const _itemsKey = 'maxei.library.items.v1';
   static const _playlistsKey = 'maxei.library.playlists.v1';
   static const _listeningHistoryKey = 'maxei.library.listeningHistory.v1';
-  final DeviceAudioScanner _deviceAudioScanner = DeviceAudioScanner();
+  final DeviceMediaScanner _deviceMediaScanner = DeviceMediaScanner();
   static const _audioExtensions = {
     'mp3',
     'm4a',
@@ -52,6 +53,10 @@ class MediaLibrary {
   };
 
   Future<List<MediaItem>> importFiles() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      return _importIosFolder();
+    }
+
     final files = await FilePicker.pickFiles(
       type: FileType.media,
       dialogTitle: 'Choisir des fichiers audio ou vidéo',
@@ -81,12 +86,48 @@ class MediaLibrary {
     return items;
   }
 
+  Future<List<MediaItem>> _importIosFolder() async {
+    const channel = MethodChannel('app.maxei/ios_folder_media_import');
+    final response = await channel.invokeListMethod<Object?>('importFolder');
+    if (response == null) return const [];
+
+    final items = <MediaItem>[];
+    for (final entry in response) {
+      if (entry is! Map) {
+        throw const FormatException('Métadonnées média iOS invalides.');
+      }
+      final metadata = Map<Object?, Object?>.from(entry);
+      final name = metadata['name'];
+      final path = metadata['path'];
+      final kind = metadata['kind'];
+      final size = metadata['size'];
+      final addedAtMs = metadata['addedAtMs'];
+      if (name is! String ||
+          path is! String ||
+          (kind != 'audio' && kind != 'video') ||
+          size is! num ||
+          addedAtMs is! num) {
+        throw const FormatException('Métadonnées média iOS invalides.');
+      }
+      items.add(
+        MediaItem.stored(
+          name: name,
+          uri: Uri.file(path),
+          size: size.toInt(),
+          kind: kind == 'audio' ? MediaKind.audio : MediaKind.video,
+          addedAt: DateTime.fromMillisecondsSinceEpoch(addedAtMs.toInt()),
+        ),
+      );
+    }
+    return items;
+  }
+
   Future<bool> requestPersistentBrowserStorage() => requestPersistentStorage();
 
-  Future<DeviceAudioScanResult> scanDeviceAudio() => _deviceAudioScanner.scan();
+  Future<DeviceMediaScanResult> scanDeviceMedia() => _deviceMediaScanner.scan();
 
   Future<void> openDeviceAudioSettings() =>
-      _deviceAudioScanner.openAppSettings();
+      _deviceMediaScanner.openAppSettings();
 
   Future<MediaLibraryState> restore({
     Set<String>? availableDeviceAudioUris,

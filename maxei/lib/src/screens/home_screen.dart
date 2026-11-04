@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../media/local_recommender.dart';
 import '../media/media_item.dart';
 import '../media/media_playlist.dart';
+import '../widgets/regional_trends_section.dart';
 import 'media_library_screen.dart';
 import '../theme/maxei_theme.dart';
 import '../widgets/liquid_surface.dart';
@@ -14,27 +15,33 @@ class HomeScreen extends StatelessWidget {
     required this.items,
     required this.playlists,
     required this.query,
-    required this.deviceAudioPermissionDenied,
-    required this.isScanningDeviceAudio,
+    required this.deviceMediaPermissionDenied,
+    required this.isScanningDeviceMedia,
     required this.onImport,
-    required this.onScanDeviceAudio,
+    required this.onScanDeviceMedia,
     required this.onOpen,
     required this.onFavorite,
     required this.onSelectMediaFilter,
     required this.onOpenPlaylists,
+    required this.regionalTrendsEnabled,
+    required this.trendingCountryCode,
+    required this.preferredArtistIds,
   });
 
   final List<MediaItem> items;
   final List<MediaPlaylist> playlists;
   final String query;
-  final bool deviceAudioPermissionDenied;
-  final bool isScanningDeviceAudio;
+  final bool deviceMediaPermissionDenied;
+  final bool isScanningDeviceMedia;
   final VoidCallback onImport;
-  final VoidCallback? onScanDeviceAudio;
+  final VoidCallback? onScanDeviceMedia;
   final ValueChanged<MediaItem> onOpen;
   final ValueChanged<MediaItem> onFavorite;
   final ValueChanged<MediaLibraryFilter> onSelectMediaFilter;
   final VoidCallback onOpenPlaylists;
+  final bool regionalTrendsEnabled;
+  final String? trendingCountryCode;
+  final List<String> preferredArtistIds;
 
   @override
   Widget build(BuildContext context) {
@@ -58,31 +65,11 @@ class HomeScreen extends StatelessWidget {
       key: const ValueKey('home-feed'),
       padding: const EdgeInsets.fromLTRB(20, 15, 20, 30),
       children: [
-        Text(
-          'VOTRE ESPACE MUSIQUE',
-          style: TextStyle(
-            color: aqua,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 7),
-        const Text(
-          'La musique.\nÀ votre façon.',
-          style: TextStyle(
-            color: ink,
-            fontSize: 33,
-            fontWeight: FontWeight.w800,
-            height: 1.02,
-            letterSpacing: -0.7,
-          ),
-        ),
-        const SizedBox(height: 19),
-        if (deviceAudioPermissionDenied) ...[
-          _AudioPermissionNotice(
-            isScanning: isScanningDeviceAudio,
-            onScan: onScanDeviceAudio!,
+        const SizedBox(height: 8),
+        if (deviceMediaPermissionDenied) ...[
+          _MediaPermissionNotice(
+            isScanning: isScanningDeviceMedia,
+            onScan: onScanDeviceMedia!,
           ),
           const SizedBox(height: 14),
         ],
@@ -116,11 +103,6 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 21),
           const _SectionHeading(title: 'Pour vous'),
           const SizedBox(height: 2),
-          Text(
-            'Suggestions calculées ici, à partir de vos favoris et écoutes.',
-            style: TextStyle(color: ink.withValues(alpha: 0.62), fontSize: 11),
-          ),
-          const SizedBox(height: 5),
           for (final recommendation in recommendations)
             _RecommendationRow(
               recommendation: recommendation,
@@ -128,6 +110,12 @@ class HomeScreen extends StatelessWidget {
               onFavorite: () => onFavorite(recommendation.item),
             ),
         ],
+        RegionalTrendsSection(
+          enabled: regionalTrendsEnabled,
+          countryCode: trendingCountryCode,
+          preferredArtistIds: preferredArtistIds,
+          library: items,
+        ),
         const SizedBox(height: 22),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -205,8 +193,8 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _AudioPermissionNotice extends StatelessWidget {
-  const _AudioPermissionNotice({
+class _MediaPermissionNotice extends StatelessWidget {
+  const _MediaPermissionNotice({
     required this.isScanning,
     required this.onScan,
   });
@@ -221,11 +209,11 @@ class _AudioPermissionNotice extends StatelessWidget {
     padding: const EdgeInsets.all(14),
     child: Row(
       children: [
-        const Icon(Icons.library_music_outlined, color: aqua),
+        const Icon(Icons.perm_media_outlined, color: aqua),
         const SizedBox(width: 11),
         const Expanded(
           child: Text(
-            'Autorisez Musique et audio pour trouver les morceaux de votre téléphone.',
+            'Autorisation audio et vidéo requise.',
             style: TextStyle(color: ink, fontSize: 11, height: 1.35),
           ),
         ),
@@ -242,7 +230,7 @@ class _AudioPermissionNotice extends StatelessWidget {
                   dimension: 17,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Autoriser'),
+              : const Text('Analyser'),
         ),
       ],
     ),
@@ -318,7 +306,7 @@ class _FeaturedHero extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                item?.title ?? 'Votre prochain morceau',
+                item?.title ?? 'Bibliothèque vide',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -327,16 +315,18 @@ class _FeaturedHero extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                item?.artist ?? 'Importez votre musique pour commencer',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: ink.withValues(alpha: 0.78),
-                  fontSize: 12,
+              if (item != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  item!.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: ink.withValues(alpha: 0.78),
+                    fontSize: 12,
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 12),
               TextButton.icon(
                 onPressed: item == null ? onImport : () => onOpen(item!),
@@ -383,13 +373,13 @@ class _CollectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LiquidGlass(
-    radius: 12,
+    radius: 24,
     tint: const Color(0xFF22282A),
     child: Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
           padding: const EdgeInsets.all(13),
           child: Row(

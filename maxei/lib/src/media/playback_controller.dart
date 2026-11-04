@@ -19,6 +19,7 @@ class PlaybackController extends ChangeNotifier {
   late final StreamSubscription<Duration> _positionSubscription;
   final ValueChanged<ListeningSession>? onListeningSessionChanged;
   List<MediaItem> _queue = const [];
+  List<MediaItem> _originalQueue = const [];
   int _queueIndex = -1;
   Timer? _sleepTimer;
   MediaItem? current;
@@ -55,6 +56,18 @@ class PlaybackController extends ChangeNotifier {
   Duration get duration => _player.duration ?? Duration.zero;
   Stream<Duration> get positionStream => _player.positionStream;
   bool get hasSleepTimer => _sleepTimer?.isActive ?? false;
+  List<MediaItem> get upcomingItems {
+    if (_queueIndex < 0 || _queue.isEmpty) return const [];
+    if (repeatMode == PlaybackRepeatMode.one && current != null) {
+      return [current!];
+    }
+    final upcoming = _queue.skip(_queueIndex + 1).toList();
+    if (repeatMode == PlaybackRepeatMode.all) {
+      upcoming.addAll(_queue.take(_queueIndex));
+      upcoming.add(_queue[_queueIndex]);
+    }
+    return upcoming;
+  }
 
   void _trackListeningPosition(Duration position) {
     final previous = _lastTrackedPosition;
@@ -88,7 +101,16 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> playQueue(List<MediaItem> items, int index) async {
     if (index < 0 || index >= items.length) return;
+    _originalQueue = List.of(items);
     _queue = List.of(items);
+    _queueIndex = index;
+    if (shuffleEnabled) _shuffleUpcoming();
+    await play(_queue[index]);
+  }
+
+  Future<void> playQueueItem(MediaItem item) async {
+    final index = _queue.indexWhere((queuedItem) => queuedItem.id == item.id);
+    if (index < 0) return;
     _queueIndex = index;
     await play(_queue[index]);
   }
@@ -110,13 +132,27 @@ class PlaybackController extends ChangeNotifier {
   }
 
   void toggleShuffle() {
-    shuffleEnabled = !shuffleEnabled;
-    notifyListeners();
+    setShuffle(!shuffleEnabled);
   }
 
   void setShuffle(bool value) {
+    if (shuffleEnabled == value) return;
     shuffleEnabled = value;
+    final currentId = current?.id;
+    if (!value && _originalQueue.isNotEmpty && currentId != null) {
+      _queue = List.of(_originalQueue);
+      final restoredIndex = _queue.indexWhere((item) => item.id == currentId);
+      if (restoredIndex >= 0) _queueIndex = restoredIndex;
+    } else if (value) {
+      _shuffleUpcoming();
+    }
     notifyListeners();
+  }
+
+  void _shuffleUpcoming() {
+    if (_queue.isEmpty || _queueIndex < 0) return;
+    final upcoming = _queue.sublist(_queueIndex + 1)..shuffle(_random);
+    _queue = [..._queue.take(_queueIndex + 1), ...upcoming];
   }
 
   void setRepeatMode(PlaybackRepeatMode value) {
@@ -175,13 +211,7 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> _advanceQueue() async {
     if (_queue.isEmpty) return;
-    if (shuffleEnabled && _queue.length > 1) {
-      final choices = List.generate(
-        _queue.length,
-        (index) => index,
-      ).where((index) => index != _queueIndex).toList();
-      _queueIndex = choices[_random.nextInt(choices.length)];
-    } else if (_queueIndex + 1 < _queue.length) {
+    if (_queueIndex + 1 < _queue.length) {
       _queueIndex++;
     } else if (repeatMode == PlaybackRepeatMode.all) {
       _queueIndex = 0;

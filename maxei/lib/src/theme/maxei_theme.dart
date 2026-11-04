@@ -5,6 +5,8 @@ const canvas = Color(0xFF090C0D);
 const aqua = Color(0xFFFF783F);
 const surface = Color(0xFF171C1F);
 const mutedInk = Color(0xFFABB1B3);
+const maxeiSurfaceRadius = 28.0;
+const maxeiControlRadius = 24.0;
 
 ThemeData buildMaxeiTheme() {
   final colorScheme = ColorScheme.dark(
@@ -47,7 +49,18 @@ ThemeData buildMaxeiTheme() {
     cardTheme: CardThemeData(
       color: surface,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: const ContinuousRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(maxeiSurfaceRadius)),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(shape: const StadiumBorder()),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(shape: const StadiumBorder()),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
     ),
     chipTheme: ChipThemeData(
       backgroundColor: surface,
@@ -61,15 +74,15 @@ ThemeData buildMaxeiTheme() {
       fillColor: surface,
       hintStyle: TextStyle(color: mutedInk.withValues(alpha: 0.8)),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(maxeiControlRadius),
         borderSide: BorderSide(color: ink.withValues(alpha: 0.14)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(maxeiControlRadius),
         borderSide: BorderSide(color: ink.withValues(alpha: 0.14)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(maxeiControlRadius),
         borderSide: const BorderSide(color: aqua, width: 1.5),
       ),
     ),
@@ -99,16 +112,26 @@ ThemeData buildMaxeiTheme() {
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: true,
+      shape: ContinuousRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(maxeiSurfaceRadius),
+        ),
+      ),
     ),
     dialogTheme: const DialogThemeData(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
+      shape: ContinuousRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(maxeiSurfaceRadius)),
+      ),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: surface,
       contentTextStyle: const TextStyle(color: ink),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: const ContinuousRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(maxeiControlRadius)),
+      ),
     ),
     sliderTheme: SliderThemeData(
       activeTrackColor: aqua,

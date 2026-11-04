@@ -6,6 +6,28 @@ import '../widgets/media_artwork.dart';
 
 enum MediaLibraryFilter { all, audio, video, recent, favorites }
 
+enum MediaSortOrder { name, newest, oldest, longest }
+
+List<MediaItem> sortMediaItems(
+  Iterable<MediaItem> source,
+  MediaSortOrder order,
+) {
+  final items = source.toList();
+  items.sort((a, b) {
+    switch (order) {
+      case MediaSortOrder.name:
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      case MediaSortOrder.newest:
+        return b.addedAt.compareTo(a.addedAt);
+      case MediaSortOrder.oldest:
+        return a.addedAt.compareTo(b.addedAt);
+      case MediaSortOrder.longest:
+        return (b.durationMs ?? -1).compareTo(a.durationMs ?? -1);
+    }
+  });
+  return items;
+}
+
 class MediaLibraryScreen extends StatelessWidget {
   const MediaLibraryScreen({
     super.key,
@@ -15,10 +37,11 @@ class MediaLibraryScreen extends StatelessWidget {
     required this.filter,
     required this.onFilterChanged,
     required this.onImport,
-    required this.onScanDeviceAudio,
-    required this.isScanningDeviceAudio,
     required this.onOpen,
     required this.onFavorite,
+    required this.sortOrder,
+    required this.onSortChanged,
+    required this.onRefresh,
   });
 
   final String title;
@@ -27,14 +50,15 @@ class MediaLibraryScreen extends StatelessWidget {
   final MediaLibraryFilter filter;
   final ValueChanged<MediaLibraryFilter> onFilterChanged;
   final VoidCallback onImport;
-  final VoidCallback? onScanDeviceAudio;
-  final bool isScanningDeviceAudio;
-  final ValueChanged<MediaItem> onOpen;
+  final void Function(MediaItem item, List<MediaItem> visibleQueue) onOpen;
   final ValueChanged<MediaItem> onFavorite;
+  final MediaSortOrder sortOrder;
+  final ValueChanged<MediaSortOrder> onSortChanged;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final items = this.items.where((item) {
+    var items = this.items.where((item) {
       return switch (filter) {
         MediaLibraryFilter.all => true,
         MediaLibraryFilter.audio => item.kind == MediaKind.audio,
@@ -45,219 +69,224 @@ class MediaLibraryScreen extends StatelessWidget {
     }).toList();
     if (filter == MediaLibraryFilter.recent) {
       items.sort((a, b) => b.lastPlayedAt!.compareTo(a.lastPlayedAt!));
+    } else {
+      items = sortMediaItems(items, sortOrder);
     }
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: ink,
-                          fontSize: 27,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    if (onScanDeviceAudio != null)
-                      IconButton(
-                        tooltip: 'Analyser à nouveau la musique du téléphone',
-                        onPressed: isScanningDeviceAudio
-                            ? null
-                            : onScanDeviceAudio,
-                        icon: isScanningDeviceAudio
-                            ? const SizedBox.square(
-                                dimension: 19,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh_rounded, color: aqua),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${items.length} éléments',
-                  style: TextStyle(
-                    color: ink.withValues(alpha: 0.65),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 13),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _FilterChip(
-                      label: 'Tout',
-                      selected: filter == MediaLibraryFilter.all,
-                      onTap: () => onFilterChanged(MediaLibraryFilter.all),
-                    ),
-                    _FilterChip(
-                      label: 'Morceaux',
-                      selected: filter == MediaLibraryFilter.audio,
-                      onTap: () => onFilterChanged(MediaLibraryFilter.audio),
-                    ),
-                    _FilterChip(
-                      label: 'Vidéos',
-                      selected: filter == MediaLibraryFilter.video,
-                      onTap: () => onFilterChanged(MediaLibraryFilter.video),
-                    ),
-                    _FilterChip(
-                      label: 'Récents',
-                      selected: filter == MediaLibraryFilter.recent,
-                      onTap: () => onFilterChanged(MediaLibraryFilter.recent),
-                    ),
-                    _FilterChip(
-                      label: 'Favoris',
-                      selected: filter == MediaLibraryFilter.favorites,
-                      onTap: () =>
-                          onFilterChanged(MediaLibraryFilter.favorites),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (items.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.library_music_outlined,
-                      color: ink,
-                      size: 40,
-                    ),
-                    const SizedBox(height: 13),
-                    Text(
-                      _emptyTitle(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: ink,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      _emptySubtitle(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: ink.withValues(alpha: 0.68),
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (query.isEmpty &&
-                        filter != MediaLibraryFilter.recent &&
-                        filter != MediaLibraryFilter.favorites) ...[
-                      const SizedBox(height: 15),
-                      FilledButton.icon(
-                        onPressed: onImport,
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Importer des médias'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: aqua,
-                          foregroundColor: canvas,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: ink,
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
                           ),
-                          shape: const StadiumBorder(),
                         ),
+                      ),
+                      PopupMenuButton<MediaSortOrder>(
+                        tooltip: 'Trier la bibliothèque',
+                        initialValue: sortOrder,
+                        onSelected: onSortChanged,
+                        icon: const Icon(Icons.sort_rounded, color: aqua),
+                        itemBuilder: (context) => [
+                          for (final (order, label) in const [
+                            (MediaSortOrder.name, 'Nom'),
+                            (MediaSortOrder.newest, 'Plus récent'),
+                            (MediaSortOrder.oldest, 'Plus ancien'),
+                            (MediaSortOrder.longest, 'Plus long'),
+                          ])
+                            PopupMenuItem(value: order, child: Text(label)),
+                        ],
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${items.length} éléments',
+                    style: TextStyle(
+                      color: ink.withValues(alpha: 0.65),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 13),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _FilterChip(
+                        label: 'Tout',
+                        selected: filter == MediaLibraryFilter.all,
+                        onTap: () => onFilterChanged(MediaLibraryFilter.all),
+                      ),
+                      _FilterChip(
+                        label: 'Morceaux',
+                        selected: filter == MediaLibraryFilter.audio,
+                        onTap: () => onFilterChanged(MediaLibraryFilter.audio),
+                      ),
+                      _FilterChip(
+                        label: 'Vidéos',
+                        selected: filter == MediaLibraryFilter.video,
+                        onTap: () => onFilterChanged(MediaLibraryFilter.video),
+                      ),
+                      _FilterChip(
+                        label: 'Récents',
+                        selected: filter == MediaLibraryFilter.recent,
+                        onTap: () => onFilterChanged(MediaLibraryFilter.recent),
+                      ),
+                      _FilterChip(
+                        label: 'Favoris',
+                        selected: filter == MediaLibraryFilter.favorites,
+                        onTap: () =>
+                            onFilterChanged(MediaLibraryFilter.favorites),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 7, 12, 22),
-            sliver: SliverList.builder(
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Material(
-                    color: surface.withValues(alpha: 0.9),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                      side: BorderSide(color: ink.withValues(alpha: 0.06)),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 3,
+          ),
+          if (items.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.library_music_outlined,
+                        color: ink,
+                        size: 40,
                       ),
-                      leading: MediaArtwork(title: item.title, size: 52),
-                      title: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 13),
+                      Text(
+                        _emptyTitle(),
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: ink,
-                          fontSize: 13,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      subtitle: Text(
-                        '${item.kind == MediaKind.audio ? item.artist : 'Vidéo'} · ${item.sizeLabel}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: ink.withValues(alpha: 0.65),
-                          fontSize: 10,
+                      if (query.isEmpty &&
+                          filter != MediaLibraryFilter.recent &&
+                          filter != MediaLibraryFilter.favorites) ...[
+                        const SizedBox(height: 15),
+                        FilledButton.icon(
+                          onPressed: onImport,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Importer des médias'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: aqua,
+                            foregroundColor: canvas,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                            shape: const StadiumBorder(),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 7, 12, 22),
+              sliver: SliverList.builder(
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Material(
+                      color: surface.withValues(alpha: 0.9),
+                      shape: ContinuousRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        side: BorderSide(color: ink.withValues(alpha: 0.06)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 3,
+                        ),
+                        leading: MediaArtwork(title: item.title, size: 52),
+                        title: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${item.kind == MediaKind.audio ? item.artist : 'Vidéo'} · ${item.sizeLabel}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: ink.withValues(alpha: 0.65),
+                            fontSize: 10,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: item.isFavorite
+                                  ? 'Retirer des favoris'
+                                  : 'Ajouter aux favoris',
+                              onPressed: () => onFavorite(item),
+                              icon: Icon(
+                                item.isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: item.isFavorite ? aqua : mutedInk,
+                                size: 19,
+                              ),
+                            ),
+                            Icon(
+                              item.kind == MediaKind.audio
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.play_circle_outline_rounded,
+                              color: aqua,
+                            ),
+                          ],
+                        ),
+                        onTap: () => onOpen(
+                          item,
+                          items
+                              .where(
+                                (queuedItem) =>
+                                    queuedItem.kind == MediaKind.audio,
+                              )
+                              .toList(growable: false),
                         ),
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: item.isFavorite
-                                ? 'Retirer des favoris'
-                                : 'Ajouter aux favoris',
-                            onPressed: () => onFavorite(item),
-                            icon: Icon(
-                              item.isFavorite
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              color: item.isFavorite ? aqua : mutedInk,
-                              size: 19,
-                            ),
-                          ),
-                          Icon(
-                            item.kind == MediaKind.audio
-                                ? Icons.play_arrow_rounded
-                                : Icons.play_circle_outline_rounded,
-                            color: aqua,
-                          ),
-                        ],
-                      ),
-                      onTap: () => onOpen(item),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -271,12 +300,8 @@ class MediaLibraryScreen extends StatelessWidget {
     if (filter == MediaLibraryFilter.favorites) {
       return 'Aucun favori pour le moment.';
     }
-    return 'Votre collection commence ici.';
+    return 'Bibliothèque vide.';
   }
-
-  String _emptySubtitle() => query.isEmpty && filter == MediaLibraryFilter.all
-      ? 'Importez des fichiers. Ils restent sur votre appareil.'
-      : 'Essayez un autre filtre ou ajoutez un média.';
 }
 
 class _FilterChip extends StatelessWidget {

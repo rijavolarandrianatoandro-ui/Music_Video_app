@@ -161,8 +161,8 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Material(
                   color: surface.withValues(alpha: 0.9),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                  shape: ContinuousRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
                     side: BorderSide(color: ink.withValues(alpha: 0.06)),
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -458,8 +458,8 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                         ),
                         child: Material(
                           color: surface.withValues(alpha: 0.9),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(22),
+                          shape: ContinuousRectangleBorder(
+                            borderRadius: BorderRadius.circular(26),
                             side: BorderSide(
                               color: ink.withValues(alpha: 0.06),
                             ),

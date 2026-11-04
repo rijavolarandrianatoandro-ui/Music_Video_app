@@ -21,7 +21,9 @@ void main() {
     final monthKey =
         '${recapMonth.year}-${recapMonth.month.toString().padLeft(2, '0')}';
     const deviceMediaChannel = MethodChannel('app.maxei/device_media');
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'discovery.artistSetupCompleted': true,
+    });
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
       'maxei.library.listeningHistory.v1',
@@ -29,8 +31,12 @@ void main() {
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(deviceMediaChannel, (call) async {
-          if (call.method == 'scanAudio') {
-            return {'permissionGranted': true, 'items': <Object>[]};
+          if (call.method == 'scanMedia') {
+            return {
+              'audioPermissionGranted': true,
+              'videoPermissionGranted': true,
+              'items': <Object>[],
+            };
           }
           return null;
         });
@@ -62,11 +68,17 @@ void main() {
     WidgetTester tester,
   ) async {
     const deviceMediaChannel = MethodChannel('app.maxei/device_media');
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'discovery.artistSetupCompleted': true,
+    });
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(deviceMediaChannel, (call) async {
-          if (call.method == 'scanAudio') {
-            return {'permissionGranted': true, 'items': <Object>[]};
+          if (call.method == 'scanMedia') {
+            return {
+              'audioPermissionGranted': true,
+              'videoPermissionGranted': true,
+              'items': <Object>[],
+            };
           }
           return null;
         });
@@ -81,19 +93,29 @@ void main() {
     await tester.pumpWidget(const MaxeiApp());
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
+    expect(find.text('Votre collection'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Paramètres'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Récapitulatif musical'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Récapitulatif musical'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Fichiers masqués'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Fichiers masqués'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aucun fichier masqué'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Récapitulatif musical'));
     await tester.pumpAndSettle();
-    expect(
-      find.text(
-        'Pas encore assez d’écoutes enregistrées pour ce mois. Vos prochaines lectures apparaîtront ici.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Pas encore d’écoutes ce mois-ci.'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
@@ -104,14 +126,21 @@ void main() {
     expect(find.text('Votre bibliothèque'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
+    expect(find.text('Votre collection'), findsOneWidget);
 
     await tester.tap(find.text('Vidéos').first);
     await tester.pumpAndSettle();
-    expect(find.text('Votre collection commence ici.'), findsOneWidget);
+    expect(find.text('Bibliothèque vide.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Trier la bibliothèque'));
+    await tester.pumpAndSettle();
+    expect(find.text('Plus récent'), findsOneWidget);
+    expect(find.text('Plus ancien'), findsOneWidget);
+    expect(find.text('Plus long'), findsOneWidget);
+    await tester.tap(find.text('Plus long'));
+    await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('La musique.\nÀ votre façon.'), findsOneWidget);
+    expect(find.text('Votre collection'), findsOneWidget);
 
     await tester.tap(find.text('Playlists').last);
     await tester.pumpAndSettle();

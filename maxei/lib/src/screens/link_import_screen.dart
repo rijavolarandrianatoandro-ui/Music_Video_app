@@ -108,16 +108,7 @@ class _LinkImportScreenState extends State<LinkImportScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
-          const Text(
-            'Un lien, sans détour.',
-            style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            'Reconnaissance locale pour YouTube, Facebook, Instagram et les fichiers média directs.',
-            style: TextStyle(color: ink.withValues(alpha: 0.7), height: 1.45),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           TextField(
             controller: _controller,
             keyboardType: TextInputType.url,
@@ -167,22 +158,14 @@ class _LinkImportScreenState extends State<LinkImportScreen> {
           _Notice(
             icon: Icons.shield_outlined,
             title: 'Vos comptes restent à vous',
-            detail: 'Les liens de réseaux sociaux s’ouvrent dans leur application officielle. Maxei ne lit pas les cookies, ne contourne pas les connexions et ne récupère pas les flux protégés. Pour un contenu privé, connectez-vous directement au service.',
+            detail: 'Les contenus protégés restent dans leur application d’origine.',
           ),
           const SizedBox(height: 10),
           _Notice(
             icon: Icons.verified_user_outlined,
             title: 'Téléchargement responsable',
-            detail: 'Enregistrez uniquement vos propres médias ou les contenus explicitement libres de droits. L’import local reste disponible depuis le bouton + de la bibliothèque. Aucun abonnement caché ni publicité agressive.',
-          ),
-          const SizedBox(height: 22),
-          Text(
-            'L’analyse est effectuée sur cet appareil. Elle identifie le domaine et, lorsqu’il est présent dans l’URL, l’identifiant public du contenu; elle ne vérifie pas les droits ni l’accès au média.',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: ink.withValues(alpha: 0.65),
-            ),
+            detail:
+                'Enregistrez uniquement vos médias ou ceux libres de droits.',
           ),
         ],
       ),
@@ -247,8 +230,8 @@ class _LinkResult extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           link.platform == MediaPlatform.directFile
-              ? 'Lien direct reconnu. La lecture distante dépend du serveur et de vos droits d’accès.'
-              : 'Ouverture officielle uniquement. Les flux vidéo/audio ne sont pas extraits.',
+              ? 'Lecture directe selon l’accès du serveur.'
+              : 'Ouverture dans l’application d’origine.',
           style: TextStyle(color: ink.withValues(alpha: 0.75), height: 1.4),
         ),
         const SizedBox(height: 12),
@@ -304,7 +287,7 @@ class _Notice extends StatelessWidget {
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.62),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       border: Border.all(color: ink.withValues(alpha: 0.08)),
     ),
     child: Row(

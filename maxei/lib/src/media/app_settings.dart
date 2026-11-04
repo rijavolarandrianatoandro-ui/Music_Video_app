@@ -10,6 +10,11 @@ class AppSettings {
     this.repeatMode = PlaybackRepeatMode.off,
     this.confirmDownloads = true,
     this.dismissedRecapMonth,
+    this.preferredArtistIds = const [],
+    this.artistSetupCompleted = false,
+    this.regionalTrendsEnabled = false,
+    this.trendingCountryCode,
+    this.regionalTrendsConsentAccepted = false,
   });
 
   double volume;
@@ -18,6 +23,11 @@ class AppSettings {
   PlaybackRepeatMode repeatMode;
   bool confirmDownloads;
   String? dismissedRecapMonth;
+  List<String> preferredArtistIds;
+  bool artistSetupCompleted;
+  bool regionalTrendsEnabled;
+  String? trendingCountryCode;
+  bool regionalTrendsConsentAccepted;
 
   static Future<AppSettings> load() async {
     final preferences = await SharedPreferences.getInstance();
@@ -33,6 +43,18 @@ class AppSettings {
       dismissedRecapMonth: preferences.getString(
         'settings.dismissedRecapMonth',
       ),
+      preferredArtistIds:
+          preferences.getStringList('discovery.preferredArtistIds') ?? const [],
+      artistSetupCompleted:
+          preferences.getBool('discovery.artistSetupCompleted') ?? false,
+      regionalTrendsEnabled:
+          preferences.getBool('discovery.regionalTrendsEnabled') ?? false,
+      trendingCountryCode: preferences.getString(
+        'discovery.trendingCountryCode',
+      ),
+      regionalTrendsConsentAccepted:
+          preferences.getBool('discovery.regionalTrendsConsentAccepted') ??
+          false,
     );
   }
 
@@ -50,6 +72,31 @@ class AppSettings {
       await preferences.setString(
         'settings.dismissedRecapMonth',
         dismissedRecapMonth,
+      );
+    }
+    await preferences.setStringList(
+      'discovery.preferredArtistIds',
+      preferredArtistIds,
+    );
+    await preferences.setBool(
+      'discovery.artistSetupCompleted',
+      artistSetupCompleted,
+    );
+    await preferences.setBool(
+      'discovery.regionalTrendsEnabled',
+      regionalTrendsEnabled,
+    );
+    await preferences.setBool(
+      'discovery.regionalTrendsConsentAccepted',
+      regionalTrendsConsentAccepted,
+    );
+    final trendingCountryCode = this.trendingCountryCode;
+    if (trendingCountryCode == null) {
+      await preferences.remove('discovery.trendingCountryCode');
+    } else {
+      await preferences.setString(
+        'discovery.trendingCountryCode',
+        trendingCountryCode,
       );
     }
   }

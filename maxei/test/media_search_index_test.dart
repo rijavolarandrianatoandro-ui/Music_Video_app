@@ -8,11 +8,12 @@ void main() {
     required String title,
     required String artist,
     String album = '',
+    MediaKind kind = MediaKind.audio,
   }) => MediaItem.stored(
-    name: '$title.mp3',
-    uri: Uri.parse('file:///$id.mp3'),
+    name: '$title.${kind == MediaKind.audio ? 'mp3' : 'mp4'}',
+    uri: Uri.parse('file:///$id.${kind == MediaKind.audio ? 'mp3' : 'mp4'}'),
     size: 1024,
-    kind: MediaKind.audio,
+    kind: kind,
     title: title,
     artist: artist,
     album: album,
@@ -43,6 +44,47 @@ void main() {
 
     expect(index.search('horiz'), [item]);
     expect(index.search('not found'), isEmpty);
+  });
+
+  test('finds scanned videos by title and filename', () {
+    final video = track(
+      'video',
+      title: 'Weekend Drive',
+      artist: 'Fichier local',
+      kind: MediaKind.video,
+    );
+    final index = MediaSearchIndex()..rebuild([video]);
+
+    expect(index.search('weekend'), [video]);
+    expect(index.search('mp4'), [video]);
+  });
+
+  test('marks only audio shorter than ten seconds as hidden', () {
+    final shortTrack = MediaItem.stored(
+      name: 'Short.mp3',
+      uri: Uri.parse('file:///short.mp3'),
+      size: 1024,
+      kind: MediaKind.audio,
+      durationMs: 9999,
+    );
+    final boundaryTrack = MediaItem.stored(
+      name: 'Boundary.mp3',
+      uri: Uri.parse('file:///boundary.mp3'),
+      size: 1024,
+      kind: MediaKind.audio,
+      durationMs: 10000,
+    );
+    final shortVideo = MediaItem.stored(
+      name: 'Short.mp4',
+      uri: Uri.parse('file:///short.mp4'),
+      size: 1024,
+      kind: MediaKind.video,
+      durationMs: 5000,
+    );
+
+    expect(shortTrack.isShortAudio, isTrue);
+    expect(boundaryTrack.isShortAudio, isFalse);
+    expect(shortVideo.isShortAudio, isFalse);
   });
 
   test('rebuild removes items that are no longer in the library', () {

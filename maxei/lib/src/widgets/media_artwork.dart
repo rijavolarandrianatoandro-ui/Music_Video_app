@@ -10,15 +10,27 @@ class MediaArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     final variant = title.hashCode.abs() % 3;
     final palettes = [
-      (const Color(0xFFFF7442), const Color(0xFF792A37), const Color(0xFFFFC18C)),
-      (const Color(0xFF5272B8), const Color(0xFF253456), const Color(0xFFB4C8FF)),
-      (const Color(0xFFB84B68), const Color(0xFF5E2D49), const Color(0xFFFFB2C7)),
+      (
+        const Color(0xFFFF7442),
+        const Color(0xFF792A37),
+        const Color(0xFFFFC18C),
+      ),
+      (
+        const Color(0xFF5272B8),
+        const Color(0xFF253456),
+        const Color(0xFFB4C8FF),
+      ),
+      (
+        const Color(0xFFB84B68),
+        const Color(0xFF5E2D49),
+        const Color(0xFFFFB2C7),
+      ),
     ];
     final (primary, secondary, detail) = palettes[variant];
     return SizedBox.square(
       dimension: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.2),
+      child: ClipRSuperellipse(
+        borderRadius: BorderRadius.circular(size * 0.27),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -59,7 +71,9 @@ class MediaArtwork extends StatelessWidget {
               ),
               Center(
                 child: Icon(
-                  variant == 0 ? Icons.music_note_rounded : Icons.graphic_eq_rounded,
+                  variant == 0
+                      ? Icons.music_note_rounded
+                      : Icons.graphic_eq_rounded,
                   size: size * 0.4,
                   color: detail,
                 ),

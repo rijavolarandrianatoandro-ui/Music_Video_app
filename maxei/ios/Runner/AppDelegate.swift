@@ -1,4 +1,5 @@
 import Flutter
+import AVFoundation
 import CryptoKit
 import Foundation
 import UIKit
@@ -18,6 +19,80 @@ import UniformTypeIdentifiers
     MaxeiFolderMediaImporter.register(
       with: engineBridge.pluginRegistry.registrar(forPlugin: "MaxeiFolderMediaImporter")
     )
+    MaxeiMediaArtworkPlugin.register(
+      with: engineBridge.pluginRegistry.registrar(forPlugin: "MaxeiMediaArtworkPlugin")
+    )
+  }
+}
+
+private final class MaxeiMediaArtworkPlugin: NSObject, FlutterPlugin {
+  private static let channelName = "app.maxei/media_artwork"
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(
+      name: channelName,
+      binaryMessenger: registrar.messenger()
+    )
+    registrar.addMethodCallDelegate(MaxeiMediaArtworkPlugin(), channel: channel)
+  }
+
+  func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "getArtwork",
+          let arguments = call.arguments as? [String: Any],
+          let rawURI = arguments["uri"] as? String,
+          let kind = arguments["kind"] as? String,
+          kind == "audio" || kind == "video",
+          let url = URL(string: rawURI),
+          url.isFileURL else {
+      result(
+        FlutterError(
+          code: "invalid_artwork_request",
+          message: "URI ou type de média invalide.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        let artwork = try Self.extractArtwork(from: url, kind: kind)
+        DispatchQueue.main.async {
+          result(artwork)
+        }
+      } catch {
+        DispatchQueue.main.async {
+          result(
+            FlutterError(
+              code: "artwork_unavailable",
+              message: "Impossible d’extraire l’image de ce média.",
+              details: error.localizedDescription
+            )
+          )
+        }
+      }
+    }
+  }
+
+  private static func extractArtwork(from url: URL, kind: String) throws -> Data? {
+    let asset = AVURLAsset(url: url)
+    if kind == "audio",
+       let metadata = asset.commonMetadata.first(where: {
+         $0.commonKey == .commonKeyArtwork
+       }),
+       let artwork = metadata.dataValue,
+       let image = UIImage(data: artwork) {
+      return image.jpegData(compressionQuality: 0.82)
+    }
+
+    let generator = AVAssetImageGenerator(asset: asset)
+    generator.appliesPreferredTrackTransform = true
+    generator.maximumSize = CGSize(width: 640, height: 640)
+    let frame = try generator.copyCGImage(
+      at: CMTime(seconds: 0.1, preferredTimescale: 600),
+      actualTime: nil
+    )
+    return UIImage(cgImage: frame).jpegData(compressionQuality: 0.82)
   }
 }
 

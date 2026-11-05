@@ -400,7 +400,7 @@ class _YoutubeSearchScreenState extends State<YoutubeSearchScreen> {
                             video.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: ink,
                               fontWeight: FontWeight.w700,
                             ),
@@ -409,7 +409,7 @@ class _YoutubeSearchScreenState extends State<YoutubeSearchScreen> {
                             video.channelTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: mutedInk),
+                            style: TextStyle(color: mutedInk),
                           ),
                           trailing: IconButton(
                             tooltip: isFavorite
@@ -461,14 +461,14 @@ class _YoutubeThumbnail extends StatelessWidget {
         width: 88,
         height: 58,
         child: thumbnail == null
-            ? const ColoredBox(
+            ? ColoredBox(
                 color: surface,
                 child: Icon(Icons.play_circle_outline_rounded, color: aqua),
               )
             : Image.network(
                 thumbnail.toString(),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                errorBuilder: (context, error, stackTrace) => ColoredBox(
                   color: surface,
                   child: Icon(Icons.play_circle_outline_rounded, color: aqua),
                 ),

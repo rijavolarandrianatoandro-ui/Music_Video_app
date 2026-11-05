@@ -31,26 +31,52 @@ import 'theme/maxei_theme.dart';
 import 'widgets/liquid_surface.dart';
 import 'widgets/media_artwork.dart';
 
-class MaxeiApp extends StatelessWidget {
+class MaxeiApp extends StatefulWidget {
   const MaxeiApp({super.key, this.startupWarning});
 
   final String? startupWarning;
+
+  @override
+  State<MaxeiApp> createState() => _MaxeiAppState();
+}
+
+class _MaxeiAppState extends State<MaxeiApp> {
+  AppThemeMode _themeMode = AppThemeMode.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    MaxeiPalette.setMode(_themeMode);
+  }
+
+  void _setThemeMode(AppThemeMode mode) {
+    MaxeiPalette.setMode(mode);
+    if (_themeMode != mode) setState(() => _themeMode = mode);
+  }
 
   @override
   Widget build(BuildContext context) => ProviderScope(
     child: MaterialApp(
       title: 'Maxei · votre bibliothèque média',
       debugShowCheckedModeBanner: false,
-      theme: buildMaxeiTheme(),
-      home: _MediaShell(startupWarning: startupWarning),
+      theme: buildMaxeiTheme(isDark: false),
+      darkTheme: buildMaxeiTheme(isDark: true),
+      themeMode: _themeMode == AppThemeMode.dark
+          ? ThemeMode.dark
+          : ThemeMode.light,
+      home: _MediaShell(
+        startupWarning: widget.startupWarning,
+        onThemeModeChanged: _setThemeMode,
+      ),
     ),
   );
 }
 
 class _MediaShell extends StatefulWidget {
-  const _MediaShell({this.startupWarning});
+  const _MediaShell({this.startupWarning, required this.onThemeModeChanged});
 
   final String? startupWarning;
+  final ValueChanged<AppThemeMode> onThemeModeChanged;
 
   @override
   State<_MediaShell> createState() => _MediaShellState();
@@ -68,7 +94,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
   final List<MediaPlaylist> _playlists = [];
   final List<ListeningSession> _listeningHistory = [];
   final List<int> _tabHistory = [];
-  MediaLibraryFilter _libraryFilter = MediaLibraryFilter.all;
+  MediaLibraryFilter _libraryFilter = MediaLibraryFilter.audio;
   MediaSortOrder _mediaSortOrder = MediaSortOrder.name;
   int _tab = 0;
   bool _searchOpen = false;
@@ -433,6 +459,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
     try {
       final saved = await AppSettings.load();
       _settings
+        ..themeMode = saved.themeMode
         ..volume = saved.volume
         ..speed = saved.speed
         ..shuffle = saved.shuffle
@@ -445,6 +472,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
         ..regionalTrendsEnabled = saved.regionalTrendsEnabled
         ..trendingCountryCode = saved.trendingCountryCode
         ..regionalTrendsConsentAccepted = saved.regionalTrendsConsentAccepted;
+      widget.onThemeModeChanged(_settings.themeMode);
       _playback
         ..setShuffle(_settings.shuffle)
         ..setRepeatMode(_settings.repeatMode);
@@ -533,13 +561,13 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: surface,
-          icon: const Icon(Icons.auto_awesome_rounded, color: aqua, size: 30),
+          icon: Icon(Icons.auto_awesome_rounded, color: aqua, size: 30),
           title: const Text('Votre mois en musique est prêt'),
           content: Text(
             '${ListeningRecapScreen.formatDuration(recap.totalMilliseconds)} '
             'd’écoute, ${recap.uniqueTracks} titres et '
             '${recap.sessions.length} lectures. Découvrez vos favoris du mois.',
-            style: const TextStyle(color: mutedInk, height: 1.4),
+            style: TextStyle(color: mutedInk, height: 1.4),
           ),
           actions: [
             TextButton(
@@ -588,6 +616,10 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
           settings: _settings,
           playback: _playback,
           onChanged: _saveSettings,
+          onThemeModeChanged: (mode) {
+            _settings.themeMode = mode;
+            widget.onThemeModeChanged(mode);
+          },
           onOpenRecap: _openListeningRecap,
           hiddenAudioItems: _hiddenShortAudioItems,
           onEditArtists: _editPreferredArtists,
@@ -694,11 +726,9 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
       if (!await _persistLibrary()) return;
       if (freshItems.isNotEmpty) {
         _selectMediaFilter(
-          freshItems.every((item) => item.kind == MediaKind.audio)
+          freshItems.first.kind == MediaKind.audio
               ? MediaLibraryFilter.audio
-              : freshItems.every((item) => item.kind == MediaKind.video)
-              ? MediaLibraryFilter.video
-              : MediaLibraryFilter.all,
+              : MediaLibraryFilter.video,
         );
       }
       final message = freshItems.isEmpty
@@ -732,7 +762,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
     }
   }
 
-  void _openMedia(MediaItem item, List<MediaItem> queue) {
+  Future<void> _openMedia(MediaItem item, List<MediaItem> queue) async {
     if (item.uri.scheme == 'content' &&
         (item.kind == MediaKind.audio
             ? !_deviceAudioPermissionGranted
@@ -741,11 +771,29 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
       return;
     }
     if (item.kind == MediaKind.video) {
+      try {
+        if (_playback.isPlaying) await _playback.pause();
+      } catch (error) {
+        if (mounted) {
+          _showMessage('Impossible de mettre le son en pause : $error');
+        }
+        return;
+      }
+      if (!mounted) return;
       item.playCount++;
       item.lastPlayedAt = DateTime.now();
       _persistLibraryInBackground();
       Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => VideoPlayerScreen(item: item)),
+        MaterialPageRoute<void>(
+          builder: (_) => VideoPlayerScreen(
+            item: item,
+            queue: queue
+                .where((entry) => entry.kind == MediaKind.video)
+                .toList(),
+            playback: _playback,
+            onMediaChanged: _persistLibraryInBackground,
+          ),
+        ),
       );
     } else {
       _playAudio(item, queue);
@@ -776,7 +824,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
     if (kind == MediaKind.audio) {
       _playAudio(compatibleTracks.first, compatibleTracks);
     } else {
-      _openMedia(compatibleTracks.first, compatibleTracks);
+      unawaited(_openMedia(compatibleTracks.first, compatibleTracks));
     }
   }
 
@@ -816,7 +864,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _submitSearch(),
                   textInputAction: TextInputAction.search,
-                  style: const TextStyle(color: ink, fontSize: 16),
+                  style: TextStyle(color: ink, fontSize: 16),
                   decoration: InputDecoration(
                     hintText:
                         !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
@@ -846,7 +894,7 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
                         color: aqua,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.equalizer_rounded,
                         size: 20,
                         color: canvas,
@@ -913,9 +961,9 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
                   backgroundColor: surface,
                   content: Text(
                     widget.startupWarning!,
-                    style: const TextStyle(color: ink, fontSize: 12),
+                    style: TextStyle(color: ink, fontSize: 12),
                   ),
-                  leading: const Icon(Icons.warning_amber_rounded, color: aqua),
+                  leading: Icon(Icons.warning_amber_rounded, color: aqua),
                   actions: [
                     TextButton(
                       onPressed: () =>
@@ -946,11 +994,13 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
                             onScanDeviceMedia: _canScanDeviceMedia
                                 ? _scanDeviceMedia
                                 : null,
-                            onOpen: (item) => _openMedia(
-                              item,
-                              item.kind == MediaKind.audio
-                                  ? audioItems
-                                  : videoItems,
+                            onOpen: (item) => unawaited(
+                              _openMedia(
+                                item,
+                                item.kind == MediaKind.audio
+                                    ? audioItems
+                                    : videoItems,
+                              ),
                             ),
                             onFavorite: (item) => _toggleFavorite(item),
                             onSelectMediaFilter: _selectMediaFilter,
@@ -968,14 +1018,16 @@ class _MediaShellState extends State<_MediaShell> with WidgetsBindingObserver {
                             onFilterChanged: (filter) =>
                                 setState(() => _libraryFilter = filter),
                             onImport: _importMedia,
-                            onOpen: (item, visibleQueue) => _openMedia(
-                              item,
-                              visibleQueue
-                                  .where(
-                                    (queuedItem) =>
-                                        queuedItem.kind == MediaKind.audio,
-                                  )
-                                  .toList(growable: false),
+                            onOpen: (item, visibleQueue) => unawaited(
+                              _openMedia(
+                                item,
+                                visibleQueue
+                                    .where(
+                                      (queuedItem) =>
+                                          queuedItem.kind == item.kind,
+                                    )
+                                    .toList(growable: false),
+                              ),
                             ),
                             onFavorite: (item) => _toggleFavorite(item),
                           ),
@@ -1079,7 +1131,7 @@ class _MiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 22,
-    tint: const Color(0xFF202629),
+    tint: surface,
     child: Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1088,7 +1140,7 @@ class _MiniPlayer extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
           child: Row(
             children: [
-              MediaArtwork(title: item.title, size: 42),
+              MediaArtwork(title: item.title, item: item, size: 42),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(
@@ -1099,7 +1151,7 @@ class _MiniPlayer extends StatelessWidget {
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: ink,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1109,7 +1161,7 @@ class _MiniPlayer extends StatelessWidget {
                       item.artist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: ink, fontSize: 10),
+                      style: TextStyle(color: ink, fontSize: 10),
                     ),
                   ],
                 ),
@@ -1128,7 +1180,7 @@ class _MiniPlayer extends StatelessWidget {
               IconButton(
                 tooltip: 'Suivant',
                 onPressed: onNext,
-                icon: const Icon(Icons.skip_next_rounded, color: ink),
+                icon: Icon(Icons.skip_next_rounded, color: ink),
               ),
             ],
           ),

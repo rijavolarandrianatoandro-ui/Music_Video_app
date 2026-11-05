@@ -72,7 +72,7 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
         sliver: SliverToBoxAdapter(
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -114,9 +114,9 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.queue_music_rounded, color: ink, size: 42),
+                  Icon(Icons.queue_music_rounded, color: ink, size: 42),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     'Créez votre première playlist',
                     style: TextStyle(
                       color: ink,
@@ -172,7 +172,7 @@ class _PlaylistLibraryScreenState extends State<PlaylistLibraryScreen> {
                       playlist.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: ink,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -292,7 +292,7 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Ajouter des médias',
                           style: TextStyle(
@@ -330,7 +330,11 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(item.artist),
-                        secondary: MediaArtwork(title: item.title, size: 42),
+                        secondary: MediaArtwork(
+                          title: item.title,
+                          item: item,
+                          size: 42,
+                        ),
                         onChanged: (checked) => setSheetState(() {
                           if (checked == true) {
                             selected.add(item.id);
@@ -466,12 +470,16 @@ class _PlaylistDetailScreenState extends State<_PlaylistDetailScreen> {
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: ListTile(
-                            leading: MediaArtwork(title: item.title, size: 44),
+                            leading: MediaArtwork(
+                              title: item.title,
+                              item: item,
+                              size: 44,
+                            ),
                             title: Text(
                               item.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: ink,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,

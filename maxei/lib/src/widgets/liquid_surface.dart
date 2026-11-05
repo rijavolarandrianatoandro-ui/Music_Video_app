@@ -57,33 +57,44 @@ class LiquidBackdrop extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: const [Color(0xFF17191A), Color(0xFF0D1113), canvas],
-            stops: [0, 0.48, 1],
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [const Color(0xFF171717), const Color(0xFF0D0D0D), canvas]
+                  : [const Color(0xFFFFFFFF), const Color(0xFFF8F8F8), canvas],
+              stops: const [0, 0.48, 1],
+            ),
           ),
         ),
-      ),
-      const Positioned(
-        top: -120,
-        right: -90,
-        child: _AmbientGlow(color: Color(0x66FF783F), size: 360),
-      ),
-      const Positioned(
-        bottom: 70,
-        left: -150,
-        child: _AmbientGlow(color: Color(0x332D6B9B), size: 340),
-      ),
-      const CustomPaint(painter: _AtmospherePainter()),
-      child,
-    ],
-  );
+        Positioned(
+          top: -120,
+          right: -90,
+          child: _AmbientGlow(
+            color: isDark ? const Color(0x22FFFFFF) : const Color(0x18000000),
+            size: 360,
+          ),
+        ),
+        Positioned(
+          bottom: 70,
+          left: -150,
+          child: _AmbientGlow(
+            color: isDark ? const Color(0x14FFFFFF) : const Color(0x10000000),
+            size: 340,
+          ),
+        ),
+        CustomPaint(painter: _AtmospherePainter(isDark: isDark)),
+        child,
+      ],
+    );
+  }
 }
 
 class _AmbientGlow extends StatelessWidget {
@@ -104,12 +115,14 @@ class _AmbientGlow extends StatelessWidget {
 }
 
 class _AtmospherePainter extends CustomPainter {
-  const _AtmospherePainter();
+  const _AtmospherePainter({required this.isDark});
+
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ink.withValues(alpha: 0.025)
+      ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.025)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (var index = 0; index < 4; index++) {
@@ -123,5 +136,6 @@ class _AtmospherePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _AtmospherePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _AtmospherePainter oldDelegate) =>
+      isDark != oldDelegate.isDark;
 }

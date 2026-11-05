@@ -202,7 +202,7 @@ class _LinkResult extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.check_circle_rounded, color: ink),
+            Icon(Icons.check_circle_rounded, color: ink),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

@@ -94,9 +94,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Votre collection'), findsOneWidget);
+    expect(find.text('Tout'), findsNothing);
+    expect(find.text('Morceaux'), findsNothing);
+    expect(find.text('Favoris'), findsNothing);
 
     await tester.tap(find.byTooltip('Paramètres'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Clair'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getInt('settings.themeMode'),
+      1,
+    );
     await tester.scrollUntilVisible(
       find.text('Récapitulatif musical'),
       240,
@@ -121,9 +134,14 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Morceaux'));
+    await tester.tap(find.text('Musique'));
     await tester.pumpAndSettle();
     expect(find.text('Votre bibliothèque'), findsOneWidget);
+    expect(find.text('Morceaux'), findsOneWidget);
+    expect(find.text('Vidéos'), findsOneWidget);
+    expect(find.text('Récents'), findsOneWidget);
+    expect(find.text('Tout'), findsNothing);
+    expect(find.text('Favoris'), findsNothing);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Votre collection'), findsOneWidget);

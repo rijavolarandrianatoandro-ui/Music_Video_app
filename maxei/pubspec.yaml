@@ -50,6 +50,7 @@ dependencies:
   audio_metadata_reader: ^1.8.1
   http: ^1.6.0
   connectivity_plus: ^7.3.2
+  screen_brightness: ^2.1.11
 dev_dependencies:
   flutter_test:
     sdk: flutter

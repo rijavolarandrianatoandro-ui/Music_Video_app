@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../media/media_item.dart';
 import '../theme/maxei_theme.dart';
 import 'media_artwork.dart';
 
@@ -7,11 +8,13 @@ class VinylRecord extends StatefulWidget {
   const VinylRecord({
     super.key,
     required this.title,
+    required this.item,
     required this.isPlaying,
     this.size = 292,
   });
 
   final String title;
+  final MediaItem item;
   final bool isPlaying;
   final double size;
 
@@ -97,13 +100,14 @@ class _VinylRecordState extends State<VinylRecord>
                 clipBehavior: Clip.antiAlias,
                 child: MediaArtwork(
                   title: widget.title,
+                  item: widget.item,
                   size: widget.size * 0.43,
                 ),
               ),
               Container(
                 width: widget.size * 0.035,
                 height: widget.size * 0.035,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: canvas,
                   shape: BoxShape.circle,
                 ),

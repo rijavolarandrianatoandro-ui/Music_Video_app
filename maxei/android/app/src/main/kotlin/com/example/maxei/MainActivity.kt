@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -14,20 +17,55 @@ import androidx.core.content.ContextCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executors
 
 class MainActivity : AudioServiceActivity() {
     private val channelName = "app.maxei/device_media"
+    private val artworkChannelName = "app.maxei/media_artwork"
     private val permissionRequestCode = 4107
     private val maxLyricsReadBytes = 256L * 1024 * 1024
     private val scannerExecutor = Executors.newSingleThreadExecutor()
+    private val artworkExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingScanResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, artworkChannelName)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "getArtwork") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val arguments = call.arguments as? Map<*, *>
+                val rawUri = arguments?.get("uri") as? String
+                val kind = arguments?.get("kind") as? String
+                if (rawUri == null || (kind != "audio" && kind != "video")) {
+                    result.error(
+                        "invalid_artwork_request",
+                        "URI ou type de média manquant.",
+                        null
+                    )
+                    return@setMethodCallHandler
+                }
+                artworkExecutor.execute {
+                    try {
+                        val artwork = extractArtwork(rawUri, kind)
+                        mainHandler.post { result.success(artwork) }
+                    } catch (error: Exception) {
+                        mainHandler.post {
+                            result.error(
+                                "artwork_unavailable",
+                                "Impossible d’extraire l’image de ce média.",
+                                error.message
+                            )
+                        }
+                    }
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -86,6 +124,62 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun extractArtwork(rawUri: String, kind: String): ByteArray? {
+        val uri = Uri.parse(rawUri)
+        val retriever = MediaMetadataRetriever()
+        try {
+              when (uri.scheme) {
+                  "content" -> retriever.setDataSource(this, uri)
+                  "file" -> retriever.setDataSource(uri.path
+                      ?: throw IllegalArgumentException("File URI has no path."))
+                  else -> throw IllegalArgumentException("Unsupported artwork URI.")
+              }
+              if (kind == "audio") {
+                  retriever.embeddedPicture?.let { return normalizeArtwork(it) }
+              }
+              val frame = retriever.getFrameAtTime(
+                  100_000,
+                  MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+              ) ?: return null
+              return encodeArtwork(frame)
+        } finally {
+              retriever.release()
+        }
+    }
+
+    private fun normalizeArtwork(encoded: ByteArray): ByteArray? {
+        val bitmap = BitmapFactory.decodeByteArray(encoded, 0, encoded.size) ?: return null
+        return try {
+              encodeArtwork(bitmap)
+        } finally {
+              bitmap.recycle()
+        }
+    }
+
+    private fun encodeArtwork(bitmap: Bitmap): ByteArray {
+        val maxDimension = 640
+        val scale = minOf(
+              1f,
+              maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height)
+        )
+        val resized = if (scale < 1f) {
+              Bitmap.createScaledBitmap(
+                  bitmap,
+                  (bitmap.width * scale).toInt().coerceAtLeast(1),
+                  (bitmap.height * scale).toInt().coerceAtLeast(1),
+                  true
+              )
+        } else bitmap
+        return try {
+              ByteArrayOutputStream().use { output ->
+                  resized.compress(Bitmap.CompressFormat.JPEG, 82, output)
+                  output.toByteArray()
+              }
+        } finally {
+              if (resized !== bitmap) resized.recycle()
+        }
     }
 
     private fun copyAudioForLyrics(rawUri: String, rawExtension: String): String {
@@ -373,6 +467,7 @@ class MainActivity : AudioServiceActivity() {
     override fun onDestroy() {
         pendingScanResult = null
         scannerExecutor.shutdownNow()
+        artworkExecutor.shutdownNow()
         super.onDestroy()
     }
 }

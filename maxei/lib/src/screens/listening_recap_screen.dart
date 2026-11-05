@@ -46,7 +46,7 @@ class ListeningRecapScreen extends StatelessWidget {
         children: [
           Text(
             '${_months[recap.start.month - 1].toUpperCase()} ${recap.start.year}',
-            style: const TextStyle(
+            style: TextStyle(
               color: aqua,
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -58,30 +58,30 @@ class ListeningRecapScreen extends StatelessWidget {
             LiquidGlass(
               radius: 22,
               padding: const EdgeInsets.all(18),
-              child: const Text(
+              child: Text(
                 'Pas encore d’écoutes ce mois-ci.',
                 style: TextStyle(color: ink, height: 1.5),
               ),
             ),
           LiquidGlass(
             radius: 25,
-            tint: const Color(0xFF2C211B),
+            tint: surface,
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.graphic_eq_rounded, color: aqua, size: 26),
+                Icon(Icons.graphic_eq_rounded, color: aqua, size: 26),
                 const SizedBox(height: 14),
                 Text(
                   formatDuration(recap.totalMilliseconds),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: ink,
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'passées à écouter votre musique',
                   style: TextStyle(color: mutedInk, fontSize: 13),
                 ),
@@ -179,7 +179,7 @@ class _StatChip extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: aqua),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(color: ink, fontSize: 11)),
+        Text(label, style: TextStyle(color: ink, fontSize: 11)),
       ],
     ),
   );
@@ -193,7 +193,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title,
-    style: const TextStyle(
+    style: TextStyle(
       color: aqua,
       fontSize: 10,
       fontWeight: FontWeight.w800,
@@ -215,7 +215,7 @@ class _TrackRow extends StatelessWidget {
       child: Text(
         rank.toString().padLeft(2, '0'),
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           color: aqua,
           fontWeight: FontWeight.w800,
           fontSize: 16,
@@ -226,16 +226,16 @@ class _TrackRow extends StatelessWidget {
       track.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
+      style: TextStyle(color: ink, fontWeight: FontWeight.w700),
     ),
     subtitle: Text(
       '${track.artist} · ${track.plays} ${track.plays == 1 ? 'lecture' : 'lectures'}',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: mutedInk, fontSize: 11),
+      style: TextStyle(color: mutedInk, fontSize: 11),
     ),
     trailing: track.isFavorite
-        ? const Icon(Icons.favorite_rounded, size: 17, color: aqua)
+        ? Icon(Icons.favorite_rounded, size: 17, color: aqua)
         : null,
   );
 }
@@ -265,13 +265,13 @@ class _HighlightCard extends StatelessWidget {
         children: [
           Icon(icon, size: 19, color: aqua),
           const SizedBox(height: 10),
-          Text(title, style: const TextStyle(color: mutedInk, fontSize: 10)),
+          Text(title, style: TextStyle(color: mutedInk, fontSize: 10)),
           const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: ink,
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -281,7 +281,7 @@ class _HighlightCard extends StatelessWidget {
             detail,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: mutedInk, fontSize: 10),
+            style: TextStyle(color: mutedInk, fontSize: 10),
           ),
         ],
       ),
@@ -312,12 +312,12 @@ class _MonthlyComparison extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          const Icon(Icons.trending_up_rounded, color: aqua),
+          Icon(Icons.trending_up_rounded, color: aqua),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: ink, fontSize: 12, height: 1.4),
+              style: TextStyle(color: ink, fontSize: 12, height: 1.4),
             ),
           ),
         ],

@@ -73,31 +73,6 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
         ],
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _HomeFilterChip(
-                label: 'Tout',
-                selected: true,
-                onTap: () => onSelectMediaFilter(MediaLibraryFilter.all),
-              ),
-              _HomeFilterChip(
-                label: 'Morceaux',
-                onTap: () => onSelectMediaFilter(MediaLibraryFilter.audio),
-              ),
-              _HomeFilterChip(
-                label: 'Vidéos',
-                onTap: () => onSelectMediaFilter(MediaLibraryFilter.video),
-              ),
-              _HomeFilterChip(
-                label: 'Favoris',
-                onTap: () => onSelectMediaFilter(MediaLibraryFilter.favorites),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
         _FeaturedHero(item: featured, onImport: onImport, onOpen: onOpen),
         if (recommendations.isNotEmpty) ...[
           const SizedBox(height: 21),
@@ -124,7 +99,7 @@ class HomeScreen extends StatelessWidget {
             IconButton(
               tooltip: 'Ajouter des médias',
               onPressed: onImport,
-              icon: const Icon(Icons.add_rounded, color: ink),
+              icon: Icon(Icons.add_rounded, color: ink),
             ),
           ],
         ),
@@ -152,17 +127,7 @@ class HomeScreen extends StatelessWidget {
         ),
         if (popular.isNotEmpty) ...[
           const SizedBox(height: 22),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const _SectionHeading(title: 'Populaires'),
-              TextButton(
-                onPressed: () => onSelectMediaFilter(MediaLibraryFilter.all),
-                style: TextButton.styleFrom(foregroundColor: ink),
-                child: const Text('Tout voir'),
-              ),
-            ],
-          ),
+          const _SectionHeading(title: 'Populaires'),
           for (final item in popular.take(6))
             _MediaRow(
               item: item,
@@ -205,13 +170,13 @@ class _MediaPermissionNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 20,
-    tint: const Color(0xFF28231E),
+    tint: surface,
     padding: const EdgeInsets.all(14),
     child: Row(
       children: [
-        const Icon(Icons.perm_media_outlined, color: aqua),
+        Icon(Icons.perm_media_outlined, color: aqua),
         const SizedBox(width: 11),
-        const Expanded(
+        Expanded(
           child: Text(
             'Autorisation audio et vidéo requise.',
             style: TextStyle(color: ink, fontSize: 11, height: 1.35),
@@ -237,42 +202,6 @@ class _MediaPermissionNotice extends StatelessWidget {
   );
 }
 
-class _HomeFilterChip extends StatelessWidget {
-  const _HomeFilterChip({
-    required this.label,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 7),
-    child: Material(
-      color: selected ? aqua : surface.withValues(alpha: 0.84),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? canvas : ink,
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
 class _FeaturedHero extends StatelessWidget {
   const _FeaturedHero({
     required this.item,
@@ -287,7 +216,7 @@ class _FeaturedHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 28,
-    tint: const Color(0xFF263650),
+    tint: surface,
     padding: const EdgeInsets.all(20),
     child: Row(
       children: [
@@ -295,10 +224,10 @@ class _FeaturedHero extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'À ÉCOUTER',
                 style: TextStyle(
-                  color: Color(0xFFFFB18C),
+                  color: aqua,
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
                   letterSpacing: 1.4,
@@ -309,7 +238,7 @@ class _FeaturedHero extends StatelessWidget {
                 item?.title ?? 'Bibliothèque vide',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: ink,
                   fontSize: 21,
                   fontWeight: FontWeight.w800,
@@ -352,7 +281,7 @@ class _FeaturedHero extends StatelessWidget {
         if (item == null)
           const MediaArtwork(title: 'Maxei', size: 92)
         else
-          MediaArtwork(title: item!.title, size: 92),
+          MediaArtwork(title: item!.title, item: item, size: 92),
       ],
     ),
   );
@@ -374,7 +303,7 @@ class _CollectionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 24,
-    tint: const Color(0xFF22282A),
+    tint: surface,
     child: Material(
       color: Colors.transparent,
       child: InkWell(
@@ -392,7 +321,7 @@ class _CollectionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: ink,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -400,7 +329,7 @@ class _CollectionTile extends StatelessWidget {
                     ),
                     Text(
                       '$count éléments',
-                      style: const TextStyle(color: ink, fontSize: 10),
+                      style: TextStyle(color: ink, fontSize: 10),
                     ),
                   ],
                 ),
@@ -425,15 +354,15 @@ class _EmptyPlaylists extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
-    leading: const Icon(Icons.queue_music_rounded, color: ink),
-    title: const Text(
+    leading: Icon(Icons.queue_music_rounded, color: ink),
+    title: Text(
       'Composez votre prochaine file',
       style: TextStyle(color: ink, fontSize: 12),
     ),
     trailing: IconButton(
       tooltip: 'Créer une playlist',
       onPressed: onOpen,
-      icon: const Icon(Icons.add_rounded, color: ink),
+      icon: Icon(Icons.add_rounded, color: ink),
     ),
   );
 }
@@ -451,17 +380,13 @@ class _PlaylistRow extends StatelessWidget {
       playlist.name,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: ink,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
+      style: TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w600),
     ),
     subtitle: Text(
       '${playlist.mediaIds.length} titres',
       style: TextStyle(color: ink.withValues(alpha: 0.65), fontSize: 10),
     ),
-    trailing: const Icon(Icons.chevron_right_rounded, color: ink),
+    trailing: Icon(Icons.chevron_right_rounded, color: ink),
     onTap: onTap,
   );
 }
@@ -473,11 +398,7 @@ class _SectionHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title,
-    style: const TextStyle(
-      color: ink,
-      fontSize: 16,
-      fontWeight: FontWeight.w800,
-    ),
+    style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800),
   );
 }
 
@@ -494,16 +415,12 @@ class _MediaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
-    leading: MediaArtwork(title: item.title, size: 48),
+    leading: MediaArtwork(title: item.title, item: item, size: 48),
     title: Text(
       item.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: ink,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
+      style: TextStyle(color: ink, fontSize: 13, fontWeight: FontWeight.w600),
     ),
     subtitle: Text(
       item.artist,
@@ -538,16 +455,16 @@ class _RecommendationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
-    leading: MediaArtwork(title: recommendation.item.title, size: 46),
+    leading: MediaArtwork(
+      title: recommendation.item.title,
+      item: recommendation.item,
+      size: 46,
+    ),
     title: Text(
       recommendation.item.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: ink,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-      ),
+      style: TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w700),
     ),
     subtitle: Text(
       recommendation.reason,
@@ -558,7 +475,7 @@ class _RecommendationRow extends StatelessWidget {
     trailing: IconButton(
       tooltip: 'Ajouter aux favoris',
       onPressed: onFavorite,
-      icon: const Icon(Icons.favorite_border_rounded, color: aqua, size: 19),
+      icon: Icon(Icons.favorite_border_rounded, color: aqua, size: 19),
     ),
     onTap: onTap,
   );
@@ -573,13 +490,13 @@ class _SearchResults extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
-      const Text(
+      Text(
         'Résultats',
         style: TextStyle(color: ink, fontSize: 22, fontWeight: FontWeight.w800),
       ),
       const SizedBox(height: 12),
       if (items.isEmpty)
-        const Text(
+        Text(
           'Aucun média ne correspond à cette recherche.',
           style: TextStyle(color: ink, fontSize: 13),
         )
@@ -587,18 +504,18 @@ class _SearchResults extends StatelessWidget {
         for (final item in items)
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: MediaArtwork(title: item.title, size: 48),
+            leading: MediaArtwork(title: item.title, item: item, size: 48),
             title: Text(
               item.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: ink),
+              style: TextStyle(color: ink),
             ),
             subtitle: Text(
               item.kind == MediaKind.audio
                   ? 'Audio · ${item.artist}'
                   : 'Vidéo · ${item.sizeLabel}',
-              style: const TextStyle(color: ink, fontSize: 11),
+              style: TextStyle(color: ink, fontSize: 11),
             ),
             trailing: Icon(
               item.kind == MediaKind.audio

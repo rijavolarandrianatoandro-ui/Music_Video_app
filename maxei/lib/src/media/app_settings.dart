@@ -2,8 +2,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'playback_controller.dart';
 
+enum AppThemeMode { dark, light }
+
 class AppSettings {
   AppSettings({
+    this.themeMode = AppThemeMode.dark,
     this.volume = 1,
     this.speed = 1,
     this.shuffle = false,
@@ -17,6 +20,7 @@ class AppSettings {
     this.regionalTrendsConsentAccepted = false,
   });
 
+  AppThemeMode themeMode;
   double volume;
   double speed;
   bool shuffle;
@@ -32,7 +36,11 @@ class AppSettings {
   static Future<AppSettings> load() async {
     final preferences = await SharedPreferences.getInstance();
     final repeatIndex = preferences.getInt('settings.repeatMode') ?? 0;
+    final themeIndex = preferences.getInt('settings.themeMode') ?? 0;
     return AppSettings(
+      themeMode: AppThemeMode.values[
+        themeIndex.clamp(0, AppThemeMode.values.length - 1)
+      ],
       volume: (preferences.getDouble('settings.volume') ?? 1).clamp(0, 1),
       speed: (preferences.getDouble('settings.speed') ?? 1).clamp(0.5, 2),
       shuffle: preferences.getBool('settings.shuffle') ?? false,
@@ -60,6 +68,7 @@ class AppSettings {
 
   Future<void> save() async {
     final preferences = await SharedPreferences.getInstance();
+    await preferences.setInt('settings.themeMode', themeMode.index);
     await preferences.setDouble('settings.volume', volume);
     await preferences.setDouble('settings.speed', speed);
     await preferences.setBool('settings.shuffle', shuffle);

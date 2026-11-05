@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:screen_brightness/screen_brightness.dart';
 import 'package:video_player/video_player.dart';
 
 import '../media/media_file_store.dart';
@@ -39,7 +41,7 @@ class NowPlayingScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Arrêter la lecture après',
                   style: TextStyle(
                     color: aqua,
@@ -49,7 +51,7 @@ class NowPlayingScreen extends StatelessWidget {
                 ),
                 for (final minutes in [15, 30, 45, 60])
                   ListTile(
-                    leading: const Icon(Icons.bedtime_outlined, color: ink),
+                    leading: Icon(Icons.bedtime_outlined, color: ink),
                     title: Text('$minutes minutes'),
                     onTap: () {
                       playback.setSleepTimer(Duration(minutes: minutes));
@@ -58,7 +60,7 @@ class NowPlayingScreen extends StatelessWidget {
                   ),
                 if (playback.hasSleepTimer)
                   ListTile(
-                    leading: const Icon(Icons.timer_off_outlined, color: ink),
+                    leading: Icon(Icons.timer_off_outlined, color: ink),
                     title: const Text('Désactiver le minuteur'),
                     onTap: () {
                       playback.setSleepTimer(null);
@@ -115,6 +117,7 @@ class NowPlayingScreen extends StatelessWidget {
                         children: [
                           VinylRecord(
                             title: item.title,
+                            item: item,
                             isPlaying: playback.isPlaying,
                             size: recordSize,
                           ),
@@ -139,7 +142,7 @@ class NowPlayingScreen extends StatelessWidget {
                                       item.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: ink,
                                         fontSize: 22,
                                         fontWeight: FontWeight.w800,
@@ -260,7 +263,7 @@ class NowPlayingScreen extends StatelessWidget {
                                             padding: EdgeInsets.zero,
                                           ),
                                           child: playback.isLoading
-                                              ? const SizedBox.square(
+                                              ? SizedBox.square(
                                                   dimension: 22,
                                                   child:
                                                       CircularProgressIndicator(
@@ -334,7 +337,7 @@ class NowPlayingScreen extends StatelessWidget {
                           if (playback.upcomingItems.isNotEmpty)
                             LiquidGlass(
                               radius: 20,
-                              tint: const Color(0xFF202629),
+                              tint: surface,
                               child: Theme(
                                 data: Theme.of(context)
                                     .copyWith(dividerColor: Colors.transparent),
@@ -349,11 +352,11 @@ class NowPlayingScreen extends StatelessWidget {
                                     12,
                                     10,
                                   ),
-                                  leading: const Icon(
+                                  leading: Icon(
                                     Icons.queue_music_rounded,
                                     color: aqua,
                                   ),
-                                  title: const Text(
+                                  title: Text(
                                     'À suivre',
                                     style: TextStyle(
                                       color: ink,
@@ -362,7 +365,7 @@ class NowPlayingScreen extends StatelessWidget {
                                   ),
                                   subtitle: Text(
                                     '${playback.upcomingItems.length} titre${playback.upcomingItems.length == 1 ? '' : 's'}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: mutedInk,
                                       fontSize: 11,
                                     ),
@@ -380,7 +383,7 @@ class NowPlayingScreen extends StatelessWidget {
                                             ),
                                         leading: Text(
                                           '${index + 1}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: mutedInk,
                                             fontSize: 12,
                                           ),
@@ -389,7 +392,7 @@ class NowPlayingScreen extends StatelessWidget {
                                           queuedItem.title,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: ink,
                                             fontSize: 13,
                                           ),
@@ -398,7 +401,7 @@ class NowPlayingScreen extends StatelessWidget {
                                           queuedItem.artist,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: mutedInk,
                                             fontSize: 11,
                                           ),
@@ -407,7 +410,7 @@ class NowPlayingScreen extends StatelessWidget {
                                             playback.playQueueItem(queuedItem),
                                       ),
                                     if (playback.upcomingItems.length > 30)
-                                      const Padding(
+                                      Padding(
                                         padding: EdgeInsets.all(8),
                                         child: Text(
                                           '+ titres suivants',
@@ -449,7 +452,7 @@ class NowPlayingScreen extends StatelessWidget {
                                   ),
                                   child: Text(
                                     '${playback.speed}×',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: ink,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -524,12 +527,12 @@ class _LyricsSectionState extends State<_LyricsSection> {
   @override
   Widget build(BuildContext context) => LiquidGlass(
     radius: 20,
-    tint: const Color(0xFF202629),
+    tint: surface,
     child: Column(
       children: [
         ListTile(
-          leading: const Icon(Icons.lyrics_rounded, color: aqua),
-          title: const Text(
+          leading: Icon(Icons.lyrics_rounded, color: aqua),
+          title: Text(
             'Paroles',
             style: TextStyle(color: ink, fontWeight: FontWeight.w700),
           ),
@@ -546,7 +549,7 @@ class _LyricsSectionState extends State<_LyricsSection> {
               future: _lyricsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
+                  return Center(
                     child: Padding(
                       padding: EdgeInsets.all(14),
                       child: CircularProgressIndicator(color: aqua),
@@ -556,12 +559,12 @@ class _LyricsSectionState extends State<_LyricsSection> {
                 if (snapshot.hasError) {
                   return Text(
                     'Impossible de lire les paroles intégrées : ${snapshot.error}',
-                    style: const TextStyle(color: ink, height: 1.45),
+                    style: TextStyle(color: ink, height: 1.45),
                   );
                 }
                 final lyrics = snapshot.data;
                 if (lyrics == null || lyrics.trim().isEmpty) {
-                  return const Text(
+                  return Text(
                     'Aucune parole intégrée.',
                     style: TextStyle(color: mutedInk, height: 1.45),
                   );
@@ -609,7 +612,7 @@ class _LyricsTextState extends State<_LyricsText> {
           controller: _scrollController,
           child: SelectableText(
             widget.lyrics,
-            style: const TextStyle(color: ink, height: 1.65),
+            style: TextStyle(color: ink, height: 1.65),
           ),
         ),
       );
@@ -675,25 +678,53 @@ class _LyricsTextState extends State<_LyricsText> {
 }
 
 class VideoPlayerScreen extends StatefulWidget {
-  const VideoPlayerScreen({super.key, required this.item});
+  const VideoPlayerScreen({
+    super.key,
+    required this.item,
+    required this.queue,
+    required this.playback,
+    required this.onMediaChanged,
+  });
 
   final MediaItem item;
+  final List<MediaItem> queue;
+  final PlaybackController playback;
+  final VoidCallback onMediaChanged;
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends State<VideoPlayerScreen>
+    with WidgetsBindingObserver {
   VideoPlayerController? _controller;
+  late final List<MediaItem> _videoQueue;
+  late MediaItem _currentItem;
+  int _queueIndex = 0;
   String? _playbackMediaPath;
+  String? _resolvedPlayableUri;
   Object? _error;
   double _speed = 1;
+  double _volume = 1;
   bool _muted = false;
   bool _isFullscreen = false;
   bool _showControls = true;
   double _doubleTapX = 0;
   double _videoWidth = 1;
   bool? _seekForwardFeedback;
+  bool _isAdvancing = false;
+  bool _backgroundAudioActive = false;
+  bool _wasPlayingInBackground = false;
+  Object? _backgroundAudioError;
+  double _gestureStartX = 0;
+  double _gestureStartY = 0;
+  Duration _gestureStartPosition = Duration.zero;
+  Duration? _gestureSeekPreview;
+  double? _gestureStartBrightness;
+  double _gestureStartVolume = 1;
+  double _speedBeforeHold = 1;
+  String? _gestureFeedback;
+  Timer? _gestureFeedbackTimer;
   Timer? _seekFeedbackTimer;
   Timer? _controlsTimer;
   bool _isInitializing = true;
@@ -701,6 +732,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _currentItem = widget.item;
+    _videoQueue = widget.queue
+        .where((item) => item.kind == MediaKind.video)
+        .toList();
+    if (_videoQueue.isEmpty) _videoQueue.add(widget.item);
+    final selectedIndex = _videoQueue.indexWhere(
+      (item) => item.id == widget.item.id,
+    );
+    _queueIndex = selectedIndex < 0 ? 0 : selectedIndex;
+    _currentItem = _videoQueue[_queueIndex];
     unawaited(
       SystemChrome.setPreferredOrientations(const [
         DeviceOrientation.portraitUp,
@@ -727,10 +769,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
     try {
       final playableUri = await resolvePlayableMediaUri(
-        widget.item.uri.toString(),
-        extension: widget.item.extension,
+        _currentItem.uri.toString(),
+        extension: _currentItem.extension,
       );
-      _playbackMediaPath = widget.item.uri.toString();
+      _playbackMediaPath = _currentItem.uri.toString();
+      _resolvedPlayableUri = playableUri;
       if (!mounted) {
         releasePlayableMediaUri(_playbackMediaPath!);
         _playbackMediaPath = null;
@@ -741,7 +784,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       controller.addListener(_onControllerChanged);
       await controller.initialize();
       if (mounted) {
-        setState(() => _isInitializing = false);
+        await controller.setVolume(_volume);
+        await controller.setPlaybackSpeed(_speed);
+        await controller.play();
+        setState(() {
+          _isInitializing = false;
+          _showControls = true;
+        });
         _scheduleControlsHide();
       }
     } catch (error) {
@@ -760,22 +809,137 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _onControllerChanged() {
-    final error = _controller?.value.errorDescription;
-    if (error == null || !mounted || _error == error) return;
-    setState(() => _error = error);
+    final value = _controller?.value;
+    final error = value?.errorDescription;
+    if (error != null && mounted && _error != error) {
+      setState(() => _error = error);
+    }
+    if (value?.isCompleted == true && !_isAdvancing) {
+      unawaited(_advanceVideo(1));
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(_startBackgroundAudio());
+    } else if (state == AppLifecycleState.resumed) {
+      unawaited(_restoreVideoPlayback());
+    }
+  }
+
+  bool get _supportsBackgroundAudio =>
+      !kIsWeb &&
+      const {TargetPlatform.android, TargetPlatform.iOS}.contains(
+        defaultTargetPlatform,
+      );
+
+  bool get _supportsAppBrightness => _supportsBackgroundAudio;
+
+  Future<void> _startBackgroundAudio() async {
+    final controller = _controller;
+    final playableUri = _resolvedPlayableUri;
+    if (!_supportsBackgroundAudio ||
+        controller == null ||
+        playableUri == null ||
+        !controller.value.isInitialized ||
+        !controller.value.isPlaying ||
+        _backgroundAudioActive) {
+      return;
+    }
+    try {
+      final position = controller.value.position;
+      _wasPlayingInBackground = true;
+      await controller.pause();
+      _backgroundAudioActive = true;
+      await widget.playback.playVideoAudioInBackground(
+        uri: Uri.parse(playableUri),
+        item: _currentItem,
+        position: position,
+        volume: _volume,
+        speed: _speed,
+      );
+    } catch (error) {
+      _backgroundAudioActive = false;
+      _backgroundAudioError = error;
+    }
+  }
+
+  Future<void> _restoreVideoPlayback() async {
+    final controller = _controller;
+    if (!_backgroundAudioActive) {
+      if (_wasPlayingInBackground &&
+          controller != null &&
+          controller.value.isInitialized) {
+        await controller.play();
+      }
+      _wasPlayingInBackground = false;
+      final error = _backgroundAudioError;
+      _backgroundAudioError = null;
+      if (error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('La lecture audio en arrière-plan a échoué : $error'),
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      final position = widget.playback.backgroundVideoAudioPosition;
+      final wasPlaying = widget.playback.isBackgroundVideoAudioPlaying;
+      await widget.playback.stopVideoAudioInBackground();
+      _backgroundAudioActive = false;
+      if (controller == null || !controller.value.isInitialized) return;
+      await controller.seekTo(position);
+      await controller.setVolume(_volume);
+      await controller.setPlaybackSpeed(_speed);
+      if (wasPlaying && _wasPlayingInBackground) await controller.play();
+      _wasPlayingInBackground = false;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('La reprise de la vidéo a échoué : $error')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _seekFeedbackTimer?.cancel();
+    _gestureFeedbackTimer?.cancel();
     _controlsTimer?.cancel();
     _controller?.removeListener(_onControllerChanged);
     _controller?.dispose();
     final mediaPath = _playbackMediaPath;
-    if (mediaPath != null) releasePlayableMediaUri(mediaPath);
+    unawaited(_releasePlayableMediaAfterBackgroundAudioStops(mediaPath));
+    unawaited(_resetApplicationBrightness());
     unawaited(SystemChrome.setPreferredOrientations(const []));
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     super.dispose();
+  }
+
+  Future<void> _releasePlayableMediaAfterBackgroundAudioStops(
+    String? mediaPath,
+  ) async {
+    try {
+      await widget.playback.stopVideoAudioInBackground();
+    } catch (error) {
+      debugPrint('Impossible d’arrêter le son vidéo : $error');
+    } finally {
+      if (mediaPath != null) releasePlayableMediaUri(mediaPath);
+    }
+  }
+
+  Future<void> _resetApplicationBrightness() async {
+    if (!_supportsAppBrightness) return;
+    try {
+      await ScreenBrightness.instance.resetApplicationScreenBrightness();
+    } catch (error) {
+      debugPrint('Impossible de restaurer la luminosité de l’écran : $error');
+    }
   }
 
   Future<void> _toggleFullscreen() async {
@@ -849,6 +1013,193 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _scheduleControlsHide();
   }
 
+  Future<void> _advanceVideo(int step) async {
+    if (_isAdvancing) return;
+    final nextIndex = _queueIndex + step;
+    if (nextIndex < 0 || nextIndex >= _videoQueue.length) return;
+    _isAdvancing = true;
+    try {
+      final item = _videoQueue[nextIndex];
+      item.playCount++;
+      item.lastPlayedAt = DateTime.now();
+      widget.onMediaChanged();
+      setState(() {
+        _queueIndex = nextIndex;
+        _currentItem = item;
+        _isInitializing = true;
+        _showControls = true;
+      });
+      _resolvedPlayableUri = null;
+      await _initialize();
+    } finally {
+      _isAdvancing = false;
+    }
+  }
+
+  void _onPanStart(DragStartDetails details) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    _gestureStartX = details.localPosition.dx;
+    _gestureStartY = details.localPosition.dy;
+    _gestureStartPosition = controller.value.position;
+    _gestureSeekPreview = null;
+    _gestureStartVolume = _volume;
+    _gestureStartBrightness = null;
+    _gestureAxis = null;
+  }
+
+  String? _gestureAxis;
+
+  Future<void> _readApplicationBrightness() async {
+    try {
+      _gestureStartBrightness =
+          await ScreenBrightness.instance.application;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de lire la luminosité : $error')),
+        );
+      }
+    }
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    final dx = details.localPosition.dx - _gestureStartX;
+    final dy = details.localPosition.dy - _gestureStartY;
+    if (_gestureAxis == null && (dx.abs() > 8 || dy.abs() > 8)) {
+      _gestureAxis = dx.abs() > dy.abs() ? 'horizontal' : 'vertical';
+    }
+    if (_gestureAxis == null) return;
+
+    if (_gestureAxis == 'horizontal') {
+      final controller = _controller;
+      if (controller == null) return;
+      final offset = Duration(milliseconds: (dx * 100).round());
+      final target = _gestureStartPosition + offset;
+      final duration = controller.value.duration;
+      _gestureSeekPreview = target < Duration.zero
+          ? Duration.zero
+          : target > duration
+          ? duration
+          : target;
+      final deltaSeconds =
+          (_gestureSeekPreview!.inSeconds - _gestureStartPosition.inSeconds);
+      setState(
+        () => _gestureFeedback =
+            '${deltaSeconds >= 0 ? '+' : ''}${deltaSeconds}s',
+      );
+      return;
+    }
+
+    final verticalDistance = details.localPosition.dy - _gestureStartY;
+    if (_gestureStartX < _videoWidth / 2) {
+      if (!_supportsAppBrightness) {
+        setState(() => _gestureFeedback = 'Luminosité non disponible');
+        return;
+      }
+      final initialBrightness = _gestureStartBrightness;
+      if (initialBrightness == null) {
+        unawaited(_readApplicationBrightness());
+        return;
+      }
+      final brightness = (initialBrightness - verticalDistance * 0.005)
+          .clamp(0, 1)
+          .toDouble();
+      unawaited(_setApplicationBrightness(brightness));
+      setState(
+        () => _gestureFeedback = 'Luminosité ${(brightness * 100).round()}%',
+      );
+    } else {
+      final volume = (_gestureStartVolume - verticalDistance * 0.005)
+          .clamp(0, 1)
+          .toDouble();
+      unawaited(_setVideoVolume(volume));
+      setState(() => _gestureFeedback = 'Volume ${(volume * 100).round()}%');
+    }
+  }
+
+  Future<void> _setApplicationBrightness(double value) async {
+    if (!_supportsAppBrightness) return;
+    try {
+      await ScreenBrightness.instance.setApplicationScreenBrightness(value);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Impossible de régler la luminosité : $error'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _setVideoVolume(double value) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.setVolume(value);
+      if (!mounted) return;
+      setState(() {
+        _volume = value;
+        _muted = value == 0;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de régler le son : $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _onPanEnd() async {
+    final preview = _gestureSeekPreview;
+    if (_gestureAxis == 'horizontal' && preview != null) {
+      try {
+        await _controller?.seekTo(preview);
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Impossible de déplacer la lecture : $error')),
+          );
+        }
+      }
+    }
+    _gestureFeedbackTimer?.cancel();
+    _gestureFeedbackTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) setState(() => _gestureFeedback = null);
+    });
+  }
+
+  void _onVideoTap() {
+    if (!(_controller?.value.isPlaying ?? false)) {
+      unawaited(_togglePlayback());
+    } else {
+      _toggleControls();
+    }
+  }
+
+  void _onLongPressStart(LongPressStartDetails details) {
+    _speedBeforeHold = _speed;
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(_setPlaybackSpeed(controller, 2));
+      _showGestureFeedback('Vitesse 2×');
+    }
+  }
+
+  void _onLongPressEnd(LongPressEndDetails details) {
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(_setPlaybackSpeed(controller, _speedBeforeHold));
+    }
+  }
+
+  void _showGestureFeedback(String message) {
+    _gestureFeedbackTimer?.cancel();
+    setState(() => _gestureFeedback = message);
+  }
+
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
     if (_showControls) {
@@ -894,8 +1245,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _setMuted(VideoPlayerController controller) async {
     final muted = !_muted;
     try {
-      await controller.setVolume(muted ? 0 : 1);
-      if (mounted) setState(() => _muted = muted);
+      final volume = muted ? 0.0 : 1.0;
+      await controller.setVolume(volume);
+      if (mounted) {
+        setState(() {
+          _muted = muted;
+          _volume = volume;
+        });
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -953,7 +1310,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 controller,
                 allowScrubbing: true,
                 padding: const EdgeInsets.symmetric(vertical: 7),
-                colors: const VideoProgressColors(
+                colors: VideoProgressColors(
                   playedColor: aqua,
                   bufferedColor: mutedInk,
                   backgroundColor: Color(0x66FFFFFF),
@@ -963,15 +1320,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 children: [
                   Text(
                     _formatTime(value.position),
-                    style: const TextStyle(color: ink, fontSize: 11),
+                    style: TextStyle(color: ink, fontSize: 11),
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Reculer de 10 secondes',
+                    tooltip: 'Vidéo précédente',
                     visualDensity: VisualDensity.compact,
-                    onPressed: () => _seekBy(const Duration(seconds: -10)),
+                    onPressed: _queueIndex > 0
+                        ? () => _advanceVideo(-1)
+                        : null,
                     color: ink,
-                    icon: const Icon(Icons.replay_10_rounded),
+                    icon: const Icon(Icons.skip_previous_rounded),
                   ),
                   IconButton.filled(
                     tooltip: value.isPlaying ? 'Pause' : 'Lire',
@@ -988,11 +1347,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Avancer de 10 secondes',
+                    tooltip: 'Vidéo suivante',
                     visualDensity: VisualDensity.compact,
-                    onPressed: () => _seekBy(const Duration(seconds: 10)),
+                    onPressed: _queueIndex < _videoQueue.length - 1
+                        ? () => _advanceVideo(1)
+                        : null,
                     color: ink,
-                    icon: const Icon(Icons.forward_10_rounded),
+                    icon: const Icon(Icons.skip_next_rounded),
                   ),
                   IconButton(
                     tooltip: _muted ? 'Activer le son' : 'Couper le son',
@@ -1038,7 +1399,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
                         '$_speed×',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: ink,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -1049,7 +1410,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   const Spacer(),
                   Text(
                     _formatTime(value.duration),
-                    style: const TextStyle(color: ink, fontSize: 11),
+                    style: TextStyle(color: ink, fontSize: 11),
                   ),
                 ],
               ),
@@ -1079,7 +1440,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ],
               title: Text(
-                widget.item.title,
+                _currentItem.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1091,7 +1452,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline_rounded,
                       color: aqua,
                       size: 42,
@@ -1100,7 +1461,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     Text(
                       'Lecture impossible\n$_error',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: ink),
+                      style: TextStyle(color: ink),
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -1115,7 +1476,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           : _isInitializing ||
                 controller == null ||
                 !controller.value.isInitialized
-          ? const Center(child: CircularProgressIndicator(color: aqua))
+          ? Center(child: CircularProgressIndicator(color: aqua))
           : AnimatedBuilder(
               animation: controller,
               builder: (context, _) => LayoutBuilder(
@@ -1144,14 +1505,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 ),
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: _toggleControls,
+                                  onTap: _onVideoTap,
+                                  onPanStart: _onPanStart,
+                                  onPanUpdate: _onPanUpdate,
+                                  onPanEnd: (_) => unawaited(_onPanEnd()),
                                   onDoubleTapDown: (details) {
                                     _doubleTapX = details.localPosition.dx;
                                   },
                                   onDoubleTap: _onVideoDoubleTap,
+                                  onLongPressStart: _onLongPressStart,
+                                  onLongPressEnd: _onLongPressEnd,
                                 ),
                                 if (controller.value.isBuffering)
-                                  const Center(
+                                  Center(
                                     child: CircularProgressIndicator(
                                       color: aqua,
                                     ),
@@ -1176,6 +1542,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                    ),
+                                  ),
+                                if (_gestureFeedback != null)
+                                  Positioned(
+                                    top: 16,
+                                    left: 0,
+                                    right: 0,
+                                    child: IgnorePointer(
+                                      child: Center(
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.68,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 9,
+                                            ),
+                                            child: Text(
+                                              _gestureFeedback!,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1219,7 +1618,7 @@ class _SeekFeedback extends StatelessWidget {
             Icon(icon, color: ink, size: 44),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: ink,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,

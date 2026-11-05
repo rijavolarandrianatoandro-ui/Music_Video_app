@@ -155,7 +155,7 @@ class _RegionalTrendsSectionState extends State<RegionalTrendsSection> {
             const Expanded(child: _Heading(title: 'Tendances musicales')),
             Text(
               region.name,
-              style: const TextStyle(color: mutedInk, fontSize: 11),
+              style: TextStyle(color: mutedInk, fontSize: 11),
             ),
             if (!_loading)
               IconButton(
@@ -169,7 +169,7 @@ class _RegionalTrendsSectionState extends State<RegionalTrendsSection> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              const Icon(Icons.smart_display_rounded, color: aqua, size: 16),
+              Icon(Icons.smart_display_rounded, color: aqua, size: 16),
               const SizedBox(width: 5),
               Text(
                 'Données et vidéos fournies par YouTube',
@@ -193,12 +193,12 @@ class _RegionalTrendsSectionState extends State<RegionalTrendsSection> {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  const Icon(Icons.wifi_off_rounded, color: aqua),
+                  Icon(Icons.wifi_off_rounded, color: aqua),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Tendances indisponibles : $_error',
-                      style: const TextStyle(color: mutedInk, fontSize: 12),
+                      style: TextStyle(color: mutedInk, fontSize: 12),
                     ),
                   ),
                   IconButton(
@@ -211,7 +211,7 @@ class _RegionalTrendsSectionState extends State<RegionalTrendsSection> {
             ),
           )
         else if (_trends.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
               'Aucune tendance disponible pour ce pays.',
@@ -265,7 +265,7 @@ class _TrendRow extends StatelessWidget {
           trend.video.title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: ink,
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -275,9 +275,9 @@ class _TrendRow extends StatelessWidget {
           trend.video.channelTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: mutedInk, fontSize: 11),
+          style: TextStyle(color: mutedInk, fontSize: 11),
         ),
-        trailing: const Icon(Icons.open_in_new_rounded, color: aqua, size: 18),
+        trailing: Icon(Icons.open_in_new_rounded, color: aqua, size: 18),
       ),
     ),
   );
@@ -316,7 +316,7 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title,
-    style: const TextStyle(
+    style: TextStyle(
       color: ink,
       fontSize: 17,
       fontWeight: FontWeight.w800,

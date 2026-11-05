@@ -55,6 +55,28 @@ Sur Android, iOS et macOS, Maxei publie le titre et l’artiste aux commandes
 média du système et peut continuer la lecture audio en arrière-plan. Les
 notifications/commandes système ne sont pas disponibles pour l’aperçu Web.
 
+## Pochettes et bibliothèque
+
+Les morceaux affichent leur pochette intégrée lorsqu’elle est disponible ; les
+vidéos utilisent une image extraite du fichier. Cette extraction est prise en
+charge sur Android et iOS, y compris pour les médias indexés par Android
+MediaStore. Sans image exploitable, l’interface affiche une vignette neutre
+identifiée par le titre. Les filtres de la bibliothèque sont Morceaux, Vidéos
+et Récents ; ils ne sont pas affichés sur l’accueil.
+
+## Thème et lecture vidéo
+
+L’apparence de Maxei est monochrome, avec des surfaces translucides de style
+liquid glass. Le thème clair ou sombre se choisit dans les paramètres et le
+choix est conservé sur l’appareil.
+
+Le lecteur vidéo démarre dès l’ouverture. Un appui long accélère temporairement
+la lecture à 2× ; un glissement horizontal déplace la lecture, et un glissement
+vertical règle la luminosité à gauche ou le volume à droite. Les commandes
+précédent/suivant parcourent les vidéos de la file ou playlist ouverte. Sur
+Android et iOS, le son peut continuer en arrière-plan ; l’image vidéo reste
+affichée uniquement lorsque Maxei est au premier plan.
+
 ## Préparation de la synchronisation Supabase
 
 Le schéma de `supabase/migrations/20261023000100_library_metadata.sql` ne

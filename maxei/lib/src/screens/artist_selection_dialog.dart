@@ -36,7 +36,7 @@ class _ArtistSelectionDialogState extends State<ArtistSelectionDialog> {
         children: [
           Text(
             '${_selected.length} sur 5 sélectionnés',
-            style: const TextStyle(color: aqua, fontWeight: FontWeight.w700),
+            style: TextStyle(color: aqua, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -82,7 +82,7 @@ class _ArtistSelectionDialogState extends State<ArtistSelectionDialog> {
                               artist.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: ink,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -90,7 +90,7 @@ class _ArtistSelectionDialogState extends State<ArtistSelectionDialog> {
                             ),
                           ),
                           if (selected)
-                            const Icon(
+                            Icon(
                               Icons.check_circle_rounded,
                               color: aqua,
                               size: 18,
@@ -104,7 +104,7 @@ class _ArtistSelectionDialogState extends State<ArtistSelectionDialog> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Illustrations pixel générées sur votre appareil, non '
             'photographiques et sans ressemblance avec les artistes.',
             style: TextStyle(color: mutedInk, fontSize: 11),

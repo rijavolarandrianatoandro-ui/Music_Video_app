@@ -15,6 +15,7 @@ class SettingsScreen extends StatelessWidget {
     required this.settings,
     required this.playback,
     required this.onChanged,
+    required this.onThemeModeChanged,
     required this.onOpenRecap,
     required this.hiddenAudioItems,
     required this.onEditArtists,
@@ -23,6 +24,7 @@ class SettingsScreen extends StatelessWidget {
   final AppSettings settings;
   final PlaybackController playback;
   final Future<void> Function() onChanged;
+  final ValueChanged<AppThemeMode> onThemeModeChanged;
   final VoidCallback onOpenRecap;
   final List<MediaItem> hiddenAudioItems;
   final VoidCallback onEditArtists;
@@ -168,7 +170,7 @@ class SettingsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Fichiers masqués',
                         style: TextStyle(
@@ -188,7 +190,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               Expanded(
                 child: hiddenAudioItems.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'Aucun fichier masqué',
                           style: TextStyle(color: mutedInk),
@@ -199,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final item = hiddenAudioItems[index];
                           return ListTile(
-                            leading: const Icon(
+                            leading: Icon(
                               Icons.music_off_rounded,
                               color: aqua,
                             ),
@@ -238,13 +240,52 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
           children: [
+            const _SectionTitle('APPARENCE'),
+            LiquidGlass(
+              radius: 20,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Thème'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<AppThemeMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: AppThemeMode.dark,
+                            icon: Icon(Icons.dark_mode_outlined),
+                            label: Text('Sombre'),
+                          ),
+                          ButtonSegment(
+                            value: AppThemeMode.light,
+                            icon: Icon(Icons.light_mode_outlined),
+                            label: Text('Clair'),
+                          ),
+                        ],
+                        selected: {settings.themeMode},
+                        onSelectionChanged: (selection) {
+                          final mode = selection.first;
+                          settings.themeMode = mode;
+                          onThemeModeChanged(mode);
+                          _save(context);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
             const _SectionTitle('LECTURE'),
             LiquidGlass(
               radius: 20,
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.volume_up_outlined, color: aqua),
+                    leading: Icon(Icons.volume_up_outlined, color: aqua),
                     title: const Text('Volume'),
                     subtitle: Slider(
                       value: playback.volume,
@@ -257,7 +298,7 @@ class SettingsScreen extends StatelessWidget {
                     trailing: Text('${(playback.volume * 100).round()}%'),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.speed_rounded, color: aqua),
+                    leading: Icon(Icons.speed_rounded, color: aqua),
                     title: const Text('Vitesse de lecture'),
                     subtitle: Text('${playback.speed.toStringAsFixed(2)}×'),
                     trailing: DropdownButton<double>(
@@ -286,7 +327,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.shuffle_rounded, color: aqua),
+                        Icon(Icons.shuffle_rounded, color: aqua),
                         const SizedBox(width: 14),
                         const Expanded(child: Text('Lecture aléatoire')),
                         Switch.adaptive(
@@ -301,7 +342,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.repeat_rounded, color: aqua),
+                    leading: Icon(Icons.repeat_rounded, color: aqua),
                     title: const Text('Répétition'),
                     trailing: DropdownButton<PlaybackRepeatMode>(
                       value: playback.repeatMode,
@@ -334,7 +375,7 @@ class SettingsScreen extends StatelessWidget {
                   Material(
                     color: Colors.transparent,
                     child: ListTile(
-                      leading: const Icon(
+                      leading: Icon(
                         Icons.person_search_rounded,
                         color: aqua,
                       ),
@@ -343,7 +384,7 @@ class SettingsScreen extends StatelessWidget {
                         '${settings.preferredArtistIds.length} sélectionnés · '
                         'choisir 5 pour personnaliser les suggestions',
                       ),
-                      trailing: const Icon(
+                      trailing: Icon(
                         Icons.chevron_right_rounded,
                         color: ink,
                       ),
@@ -399,7 +440,7 @@ class SettingsScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                     child: Row(
                       children: [
-                        const Icon(Icons.public_rounded, color: aqua),
+                        Icon(Icons.public_rounded, color: aqua),
                         const SizedBox(width: 14),
                         const Expanded(child: Text('Tendances régionales')),
                         Switch.adaptive(
@@ -410,7 +451,7 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 14),
                     child: Text(
                       'Désactivées par défaut. Aucun GPS n’est utilisé. '
@@ -434,7 +475,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome_rounded, color: aqua),
+                      Icon(Icons.auto_awesome_rounded, color: aqua),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -442,7 +483,7 @@ class SettingsScreen extends StatelessWidget {
                           children: [const Text('Récapitulatif musical')],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded, color: ink),
+                      Icon(Icons.chevron_right_rounded, color: ink),
                     ],
                   ),
                 ),
@@ -455,7 +496,7 @@ class SettingsScreen extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: ListTile(
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.visibility_off_outlined,
                     color: aqua,
                   ),
@@ -465,9 +506,9 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       Text(
                         '${hiddenAudioItems.length}',
-                        style: const TextStyle(color: mutedInk),
+                        style: TextStyle(color: mutedInk),
                       ),
-                      const Icon(Icons.chevron_right_rounded, color: ink),
+                      Icon(Icons.chevron_right_rounded, color: ink),
                     ],
                   ),
                   onTap: () => _showHiddenFiles(context),
@@ -485,7 +526,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.download_for_offline_outlined,
                       color: aqua,
                     ),
@@ -524,7 +565,7 @@ class _SectionTitle extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
     child: Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         color: aqua,
         fontSize: 10,
         fontWeight: FontWeight.w700,

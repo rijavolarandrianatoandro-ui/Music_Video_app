@@ -4,7 +4,7 @@ import '../media/media_item.dart';
 import '../theme/maxei_theme.dart';
 import '../widgets/media_artwork.dart';
 
-enum MediaLibraryFilter { all, audio, video, recent, favorites }
+enum MediaLibraryFilter { audio, video, recent }
 
 enum MediaSortOrder { name, newest, oldest, longest }
 
@@ -60,11 +60,9 @@ class MediaLibraryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     var items = this.items.where((item) {
       return switch (filter) {
-        MediaLibraryFilter.all => true,
         MediaLibraryFilter.audio => item.kind == MediaKind.audio,
         MediaLibraryFilter.video => item.kind == MediaKind.video,
         MediaLibraryFilter.recent => item.lastPlayedAt != null,
-        MediaLibraryFilter.favorites => item.isFavorite,
       };
     }).toList();
     if (filter == MediaLibraryFilter.recent) {
@@ -89,7 +87,7 @@ class MediaLibraryScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: ink,
                             fontSize: 27,
                             fontWeight: FontWeight.w800,
@@ -100,7 +98,7 @@ class MediaLibraryScreen extends StatelessWidget {
                         tooltip: 'Trier la bibliothèque',
                         initialValue: sortOrder,
                         onSelected: onSortChanged,
-                        icon: const Icon(Icons.sort_rounded, color: aqua),
+                        icon: Icon(Icons.sort_rounded, color: aqua),
                         itemBuilder: (context) => [
                           for (final (order, label) in const [
                             (MediaSortOrder.name, 'Nom'),
@@ -126,11 +124,6 @@ class MediaLibraryScreen extends StatelessWidget {
                     spacing: 8,
                     children: [
                       _FilterChip(
-                        label: 'Tout',
-                        selected: filter == MediaLibraryFilter.all,
-                        onTap: () => onFilterChanged(MediaLibraryFilter.all),
-                      ),
-                      _FilterChip(
                         label: 'Morceaux',
                         selected: filter == MediaLibraryFilter.audio,
                         onTap: () => onFilterChanged(MediaLibraryFilter.audio),
@@ -144,12 +137,6 @@ class MediaLibraryScreen extends StatelessWidget {
                         label: 'Récents',
                         selected: filter == MediaLibraryFilter.recent,
                         onTap: () => onFilterChanged(MediaLibraryFilter.recent),
-                      ),
-                      _FilterChip(
-                        label: 'Favoris',
-                        selected: filter == MediaLibraryFilter.favorites,
-                        onTap: () =>
-                            onFilterChanged(MediaLibraryFilter.favorites),
                       ),
                     ],
                   ),
@@ -166,7 +153,7 @@ class MediaLibraryScreen extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.library_music_outlined,
                         color: ink,
                         size: 40,
@@ -175,15 +162,14 @@ class MediaLibraryScreen extends StatelessWidget {
                       Text(
                         _emptyTitle(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: ink,
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (query.isEmpty &&
-                          filter != MediaLibraryFilter.recent &&
-                          filter != MediaLibraryFilter.favorites) ...[
+                          filter != MediaLibraryFilter.recent) ...[
                         const SizedBox(height: 15),
                         FilledButton.icon(
                           onPressed: onImport,
@@ -226,12 +212,16 @@ class MediaLibraryScreen extends StatelessWidget {
                           horizontal: 12,
                           vertical: 3,
                         ),
-                        leading: MediaArtwork(title: item.title, size: 52),
+                        leading: MediaArtwork(
+                          title: item.title,
+                          item: item,
+                          size: 52,
+                        ),
                         title: Text(
                           item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: ink,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -296,9 +286,6 @@ class MediaLibraryScreen extends StatelessWidget {
     }
     if (filter == MediaLibraryFilter.recent) {
       return 'Rien d’écouté ou vu récemment.';
-    }
-    if (filter == MediaLibraryFilter.favorites) {
-      return 'Aucun favori pour le moment.';
     }
     return 'Bibliothèque vide.';
   }

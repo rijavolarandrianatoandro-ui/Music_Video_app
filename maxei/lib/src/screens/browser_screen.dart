@@ -503,7 +503,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
                     ? null
                     : _openDirectDownload,
                 icon: _isDownloading
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,

@@ -29,7 +29,10 @@ class PlaybackController extends ChangeNotifier {
   double speed = 1;
   double volume = 1;
   bool _handlingCompletion = false;
+  bool _isBackgroundVideoAudio = false;
   String? _activeMediaPath;
+  MediaItem? _previousVideoAudioItem;
+  Duration? _previousVideoAudioPosition;
   ListeningSession? _activeListeningSession;
   Duration? _lastTrackedPosition;
   DateTime? _lastPublishedAt;
@@ -42,7 +45,8 @@ class PlaybackController extends ChangeNotifier {
         _lastTrackedPosition = null;
         _publishListeningSession();
       }
-      if (state.processingState == ProcessingState.completed) {
+      if (state.processingState == ProcessingState.completed &&
+          !_isBackgroundVideoAudio) {
         unawaited(_advanceAfterCompletion());
       }
     });
@@ -54,6 +58,9 @@ class PlaybackController extends ChangeNotifier {
   bool _isDisposed = false;
   bool get isPlaying => _player.playing;
   Duration get duration => _player.duration ?? Duration.zero;
+  Duration get backgroundVideoAudioPosition => _player.position;
+  bool get isBackgroundVideoAudioPlaying =>
+      _isBackgroundVideoAudio && _player.playing;
   Stream<Duration> get positionStream => _player.positionStream;
   bool get hasSleepTimer => _sleepTimer?.isActive ?? false;
   List<MediaItem> get upcomingItems {
@@ -179,6 +186,82 @@ class PlaybackController extends ChangeNotifier {
     speed = value;
     await _player.setSpeed(value);
     notifyListeners();
+  }
+
+  Future<void> pause() => _player.pause();
+
+  Future<void> playVideoAudioInBackground({
+    required Uri uri,
+    required MediaItem item,
+    required Duration position,
+    required double volume,
+    required double speed,
+  }) async {
+    if (_isBackgroundVideoAudio) return;
+    _previousVideoAudioItem = current;
+    _previousVideoAudioPosition = _player.position;
+    if (_player.playing) await _player.pause();
+    _publishListeningSession();
+    _activeListeningSession = null;
+    _lastTrackedPosition = null;
+    _isBackgroundVideoAudio = true;
+    try {
+      await _player.setAudioSource(
+        AudioSource.uri(
+          uri,
+          tag: audio_background.MediaItem(
+            id: item.id,
+            album: item.album.isEmpty ? 'Maxei' : item.album,
+            title: item.title,
+            artist: item.artist,
+          ),
+        ),
+      );
+      await _player.setVolume(volume.clamp(0, 1));
+      await _player.setSpeed(speed);
+      await _player.seek(position);
+      await _player.play();
+    } catch (_) {
+      _isBackgroundVideoAudio = false;
+      await _restoreAudioAfterBackgroundVideo();
+      rethrow;
+    }
+  }
+
+  Future<void> stopVideoAudioInBackground() async {
+    if (!_isBackgroundVideoAudio) return;
+    await _player.pause();
+    _isBackgroundVideoAudio = false;
+    await _restoreAudioAfterBackgroundVideo();
+  }
+
+  Future<void> _restoreAudioAfterBackgroundVideo() async {
+    final previousItem = _previousVideoAudioItem;
+    final previousPosition = _previousVideoAudioPosition;
+    _previousVideoAudioItem = null;
+    _previousVideoAudioPosition = null;
+    if (previousItem == null) {
+      await _player.stop();
+      return;
+    }
+    final playableUri = await resolvePlayableMediaUri(
+      previousItem.uri.toString(),
+      extension: previousItem.extension,
+    );
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(playableUri),
+        tag: audio_background.MediaItem(
+          id: previousItem.id,
+          title: previousItem.title,
+          artist: previousItem.artist,
+          album: previousItem.album.isEmpty ? 'Maxei' : previousItem.album,
+        ),
+      ),
+    );
+    await _player.setVolume(volume);
+    await _player.setSpeed(speed);
+    await _player.seek(previousPosition ?? Duration.zero);
   }
 
   void setSleepTimer(Duration? duration) {

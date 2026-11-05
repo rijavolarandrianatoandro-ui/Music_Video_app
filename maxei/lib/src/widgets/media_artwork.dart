@@ -1,33 +1,63 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../media/media_item.dart';
 
 class MediaArtwork extends StatelessWidget {
-  const MediaArtwork({super.key, required this.title, this.size = 64});
+  const MediaArtwork({
+    super.key,
+    required this.title,
+    this.item,
+    this.size = 64,
+  });
 
   final String title;
+  final MediaItem? item;
   final double size;
+
+  static const _artworkChannel = MethodChannel('app.maxei/media_artwork');
+  static final Map<String, Future<Uint8List?>> _artworkCache = {};
+
+  static Future<Uint8List?> _loadArtwork(MediaItem item) async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      return null;
+    }
+
+    try {
+      return await _artworkChannel.invokeMethod<Uint8List>('getArtwork', {
+        'uri': item.uri.toString(),
+        'kind': item.kind.name,
+      });
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _artwork() =>
+      _artworkCache.putIfAbsent(item!.id, () => _loadArtwork(item!));
 
   @override
   Widget build(BuildContext context) {
     final variant = title.hashCode.abs() % 3;
-    final palettes = [
-      (
-        const Color(0xFFFF7442),
-        const Color(0xFF792A37),
-        const Color(0xFFFFC18C),
-      ),
-      (
-        const Color(0xFF5272B8),
-        const Color(0xFF253456),
-        const Color(0xFFB4C8FF),
-      ),
-      (
-        const Color(0xFFB84B68),
-        const Color(0xFF5E2D49),
-        const Color(0xFFFFB2C7),
-      ),
-    ];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palettes = isDark
+        ? const [
+            (Color(0xFF454545), Color(0xFF171717), Color(0xFFF0F0F0)),
+            (Color(0xFF5C5C5C), Color(0xFF252525), Color(0xFFFFFFFF)),
+            (Color(0xFF777777), Color(0xFF303030), Color(0xFFE4E4E4)),
+          ]
+        : const [
+            (Color(0xFFDADADA), Color(0xFFB8B8B8), Color(0xFF222222)),
+            (Color(0xFFC8C8C8), Color(0xFFA0A0A0), Color(0xFF111111)),
+            (Color(0xFFE6E6E6), Color(0xFFBDBDBD), Color(0xFF333333)),
+          ];
     final (primary, secondary, detail) = palettes[variant];
-    return SizedBox.square(
+    final fallback = SizedBox.square(
       dimension: size,
       child: ClipRSuperellipse(
         borderRadius: BorderRadius.circular(size * 0.27),
@@ -70,18 +100,40 @@ class MediaArtwork extends StatelessWidget {
                 ),
               ),
               Center(
-                child: Icon(
-                  variant == 0
-                      ? Icons.music_note_rounded
-                      : Icons.graphic_eq_rounded,
-                  size: size * 0.4,
-                  color: detail,
+                child: Text(
+                  title.trim().isEmpty
+                      ? '?'
+                      : String.fromCharCode(title.trim().runes.first)
+                            .toUpperCase(),
+                  style: TextStyle(
+                    color: detail,
+                    fontSize: size * 0.38,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+
+    final currentItem = item;
+    if (currentItem == null) return fallback;
+
+    return FutureBuilder<Uint8List?>(
+      future: _artwork(),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) return fallback;
+        return SizedBox.square(
+          dimension: size,
+          child: ClipRSuperellipse(
+            borderRadius: BorderRadius.circular(size * 0.27),
+            child: Image.memory(bytes, fit: BoxFit.cover),
+          ),
+        );
+      },
     );
   }
 }
